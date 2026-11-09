@@ -3048,6 +3048,50 @@ static void captive_playable_shop_render(const GameState *gs, uint32_t *fb) {
                      _("ESC leave  1-4 droid"), 0xFF909090, 1);
 }
 
+/* Playable control panel.  The 5x5 button bank is copied from the original
+ * landed-dungeon capture (assets/captive/landed-dungeon-reference.png);
+ * buttons are 22x18 on a 24x20 pitch starting at (192, 64). */
+#define CAPTIVE_PANEL_X 192
+#define CAPTIVE_PANEL_Y 64
+static void captive_playable_panel_draw(uint32_t *fb) {
+    const unsigned char *ref = captive_landed_dungeon_reference;
+    int rw = captive_landed_dungeon_reference_width;
+    int rh = captive_landed_dungeon_reference_height;
+    if (!ref || rw != CAPTIVE_ORIGINAL_WIDTH || rh != CAPTIVE_ORIGINAL_HEIGHT) return;
+    for (int y = CAPTIVE_PANEL_Y - 4; y < CAPTIVE_PANEL_Y + 102; ++y)
+        for (int x = CAPTIVE_PANEL_X - 4; x < CAPTIVE_PANEL_X + 120; ++x) {
+            const unsigned char *p = ref + ((size_t)y * (size_t)rw + (size_t)x) * 4U;
+            fb[(size_t)y * CAPTIVE_ORIGINAL_WIDTH + (size_t)x] =
+                ((uint32_t)p[3] << 24) | ((uint32_t)p[0] << 16) |
+                ((uint32_t)p[1] << 8) | (uint32_t)p[2];
+        }
+}
+
+/* Translate a click on the panel into up to two key presses for the
+ * gameplay handler.  Returns the number of keys written. */
+static int captive_panel_keys(int cx, int cy, SDL_Keycode out[2]) {
+    int lx = cx - CAPTIVE_PANEL_X, ly = cy - CAPTIVE_PANEL_Y;
+    if (lx < 0 || ly < 0 || lx % 24 >= 22 || ly % 20 >= 18) return 0;
+    int col = lx / 24, row = ly / 20;
+    if (col > 4 || row > 4) return 0;
+    static const SDL_Keycode droid_key[4] = { SDLK_1, SDLK_2, SDLK_3, SDLK_4 };
+    static const SDL_Keycode grid[3][5] = {
+        { SDLK_LEFT, SDLK_UP,   SDLK_RIGHT, SDLK_1, SDLK_2 },
+        { SDLK_Q,    0,         SDLK_E,     SDLK_3, SDLK_4 },
+        { SDLK_KP_1, SDLK_DOWN, SDLK_KP_3,  0,      SDLK_I },
+    };
+    if (row < 3) {
+        out[0] = grid[row][col];
+        return out[0] ? 1 : 0;
+    }
+    if (col == 4)
+        return 0;               /* rest (zZ) and stop: not implemented */
+    /* Hand buttons: rows 3-4 hold droids 1-2 and 3-4, two hands each. */
+    out[0] = droid_key[(row - 3) * 2 + col / 2];
+    out[1] = SDLK_SPACE;
+    return 2;
+}
+
 int main(int argc, char *argv[]) {
     static char default_data_path[512];
     get_default_data_path(default_data_path, sizeof(default_data_path));
@@ -3788,12 +3832,21 @@ int main(int argc, char *argv[]) {
      * "Right,Up,Up") replayed one key every few frames so movement cooldowns
      * elapse; with --capture-frame the capture waits for the script to end. */
     SDL_Keycode script_keys[256];
+    int script_click_x[256], script_click_y[256];
     int script_count = 0, script_pos = 0, script_wait = 0;
     if (input_script) {
         char keys[2048];
         snprintf(keys, sizeof(keys), "%s", input_script);
         for (char *tok = strtok(keys, ","); tok && script_count < 256;
              tok = strtok(NULL, ",")) {
+            int cx, cy;
+            if (sscanf(tok, "Click:%d:%d", &cx, &cy) == 2) {
+                /* Canvas-space click on the playable control panel. */
+                script_keys[script_count] = SDLK_UNKNOWN;
+                script_click_x[script_count] = cx;
+                script_click_y[script_count++] = cy;
+                continue;
+            }
             SDL_Keycode key = SDL_GetKeyFromName(tok);
             if (key == SDLK_UNKNOWN)
                 fprintf(stderr, "--input-script: unknown key '%s'\n", tok);
@@ -3805,7 +3858,23 @@ int main(int argc, char *argv[]) {
     while (running) {
         uint64_t frame_started = SDL_GetTicks();
         if (script_wait > 0) --script_wait;
-        if (script_pos < script_count && script_wait <= 0) {
+        if (script_pos < script_count && script_wait <= 0 &&
+            script_keys[script_pos] == SDLK_UNKNOWN) {
+            SDL_Keycode keys[2];
+            int nk = gs.mode == STATE_GAME
+                ? captive_panel_keys(script_click_x[script_pos],
+                                     script_click_y[script_pos], keys) : 0;
+            for (int ki = 0; ki < nk; ++ki) {
+                SDL_Event kev;
+                memset(&kev, 0, sizeof(kev));
+                kev.type = SDL_EVENT_KEY_DOWN;
+                kev.key.key = keys[ki];
+                kev.key.down = true;
+                game_handle_input(&gs, &kev);
+            }
+            script_pos++;
+            script_wait = 12;
+        } else if (script_pos < script_count && script_wait <= 0) {
             SDL_Event ev;
             memset(&ev, 0, sizeof(ev));
             ev.type = SDL_EVENT_KEY_DOWN;
@@ -4233,6 +4302,24 @@ int main(int argc, char *argv[]) {
                                captive_live_session_active &&
                                event.type == SDL_EVENT_KEY_DOWN) {
                         (void)captive_live_send_key(event.key.key);
+                    } else if (gs.game_type == GAME_CAPTIVE &&
+                               gs.num_levels > 0 && !captive_use_gm_map &&
+                               event.type == SDL_EVENT_MOUSE_BUTTON_DOWN &&
+                               event.button.button == SDL_BUTTON_LEFT) {
+                        float pcx, pcy;
+                        SDL_Keycode keys[2];
+                        int nk = window_to_canvas(&renderer, event.button.x,
+                                                  event.button.y, &pcx, &pcy)
+                            ? captive_panel_keys((int)pcx, (int)pcy, keys) : 0;
+                        for (int ki = 0; ki < nk; ++ki) {
+                            SDL_Event kev;
+                            memset(&kev, 0, sizeof(kev));
+                            kev.type = SDL_EVENT_KEY_DOWN;
+                            kev.key.key = keys[ki];
+                            kev.key.down = true;
+                            game_handle_input(&gs, &kev);
+                        }
+                        popup_apply_cheats(&gs);
                     } else if (gs.game_type == GAME_CAPTIVE &&
                                gs.num_levels > 0 &&
                                event.type == SDL_EVENT_KEY_DOWN) {
@@ -5161,6 +5248,7 @@ int main(int argc, char *argv[]) {
                             framebuffer, CAPTIVE_ORIGINAL_WIDTH,
                             CAPTIVE_ORIGINAL_HEIGHT);
                         captive_playable_hud(&gs, framebuffer);
+                        captive_playable_panel_draw(framebuffer);
                     }
                     else
                         viewport_render(&vw, &atlas, framebuffer,
@@ -5660,6 +5748,7 @@ int main(int argc, char *argv[]) {
                                CAPTIVE_ORIGINAL_WIDTH * CAPTIVE_ORIGINAL_HEIGHT *
                                sizeof(uint32_t));
                     captive_playable_hud(&gs, framebuffer);
+                    captive_playable_panel_draw(framebuffer);
                     captive_playable_shop_render(&gs, framebuffer);
                 } else {
                     shop_render(&shop, &item_db, framebuffer,

@@ -24,6 +24,18 @@ From the holomap, `L` also enters the dungeon.
 | 1-4 | select droid |
 | I | inventory, T terminal, M map overlay |
 
+The right-hand control panel is clickable (left button):
+
+| Panel button | Action |
+| --- | --- |
+| top-left / top-right arrow | turn left / right |
+| up / down arrow | step forward / back |
+| left / right arrow | strafe |
+| ladder icons (row 3, left / right) | climb up / down |
+| coloured droid bars | select droid 1-4 |
+| four-colour button | inventory |
+| coloured hands | that droid attacks |
+
 ## What changed
 
 - **Dungeon source.** `--captive-dungeon` now uses the legacy Architect
@@ -60,6 +72,7 @@ From the holomap, `L` also enters the dungeon.
   every 12 frames; with `--capture-frame` the capture waits for the script
   and prints the end state (position, creatures, droid HP).
   `--place-party LEVEL,X,Y,DIR` starts the dungeon at a given cell.
+  A `Click:X:Y` token clicks the control panel at canvas coordinates.
 
 ## Known approximations
 
@@ -80,6 +93,11 @@ From the holomap, `L` also enters the dungeon.
   creature pieces are not mapped, so several types share a picture and
   there is no animation.
 - The top monitors show a simple status panel, not the original device
-  views; the right-hand control panel is not drawn yet.
+  views.
+- The control panel is copied from the original landed-dungeon capture
+  (`assets/captive/landed-dungeon-reference.png`), so it is static: the
+  greyed "climb down" icon of that capture is always shown. Left and right
+  hands trigger the same attack; the disk, rest (zZ) and stop buttons do
+  nothing yet.
 - The landing zone uses the base wall set instead of the planet surface.
 - Levels are not Captive's real levels (see `--captive-gm-map`).
