@@ -554,14 +554,13 @@ static const PlaySprite *play_sprite_for(int creature_type) {
     return any;
 }
 
-/* Draw one creature standing in the cell at (forward, lateral). */
-static void play_draw_creature(const TextureAtlas *atlas, int creature_type,
-                               int forward, int lateral, uint32_t *work) {
-    const PlaySprite *sp = play_sprite_for(creature_type);
-    int sheet_idx = creature_sprite_sheet_index(creature_type);
-    if (!sp || sheet_idx < 0 || sheet_idx >= 6 || forward < 1 || forward > 4)
-        return;
-    const Texture *t = gfx_get(&atlas->gfx, atlas->alien_sheets[sheet_idx]);
+/* Draw a sheet rectangle standing on the floor of the cell at
+ * (forward, lateral), scaled to `pct` percent of the cell height. */
+static void play_draw_sprite(const TextureAtlas *atlas, int sheet, int sx0,
+                             int sy0, int sw, int sh, int forward, int lateral,
+                             int pct, uint32_t *work) {
+    if (sheet < 0 || forward < 1 || forward > 4 || sw <= 0 || sh <= 0) return;
+    const Texture *t = gfx_get(&atlas->gfx, sheet);
     if (!t || !t->pixels || !t->indices) return;
     /* The cell spans planes f..f+1; size the sprite between the two. */
     const int *near_r = play_plane_rect[forward];
@@ -569,20 +568,21 @@ static void play_draw_creature(const TextureAtlas *atlas, int creature_type,
     int far_w = forward < 4 ? play_plane_rect[forward + 1][2] : near_r[2] * 2 / 3;
     int cell_h = (near_r[3] + far_h) / 2;
     int cell_w = (near_r[2] + far_w) / 2;
-    int h = cell_h * 4 / 5;
-    int w = h * sp->w / sp->h;
-    if (w > cell_w) { w = cell_w; h = w * sp->h / sp->w; }
+    int h = cell_h * pct / 100;
+    int w = h * sw / sh;
+    if (w > cell_w) { w = cell_w; h = w * sh / sw; }
+    if (w <= 0 || h <= 0) return;
     int floor_y = (near_r[1] + near_r[3] + (forward < 4
         ? play_plane_rect[forward + 1][1] + far_h : near_r[1] + near_r[3])) / 2;
     int cx = CAPTIVE_VIEWPORT_WIDTH / 2 + lateral * cell_w;
     int ox = cx - w / 2, oy = floor_y - h;
     for (int y = 0; y < h; ++y) {
-        int sy = sp->y + y * sp->h / h;
+        int sy = sy0 + y * sh / h;
         for (int x = 0; x < w; ++x) {
-            int sx = sp->x + x * sp->w / w;
+            int sx = sx0 + x * sw / w;
+            if (sx < 0 || sx >= t->width || sy < 0 || sy >= t->height) continue;
             size_t si = (size_t)sy * (size_t)t->width + (size_t)sx;
-            uint8_t idx = t->indices[si];
-            if (idx == 0) continue;
+            if (t->indices[si] == 0) continue;
             uint32_t c = t->pixels[si];
             /* Skip the sheets' bright-green layout markers. */
             if (((c >> 8) & 0xFF) > 150 && ((c >> 16) & 0xFF) < 100 && (c & 0xFF) < 100)
@@ -592,6 +592,38 @@ static void play_draw_creature(const TextureAtlas *atlas, int creature_type,
                 dy >= 0 && dy < (int)CAPTIVE_DOS_VIEW_HEIGHT)
                 work[(size_t)dy * CAPTIVE_DOS_VIEW_STRIDE + (size_t)dx] = c;
         }
+    }
+}
+
+static void play_draw_creature(const TextureAtlas *atlas, int creature_type,
+                               int forward, int lateral, uint32_t *work) {
+    const PlaySprite *sp = play_sprite_for(creature_type);
+    int sheet_idx = creature_sprite_sheet_index(creature_type);
+    if (!sp || sheet_idx < 0 || sheet_idx >= 6) return;
+    play_draw_sprite(atlas, atlas->alien_sheets[sheet_idx], sp->x, sp->y,
+                     sp->w, sp->h, forward, lateral, 80, work);
+}
+
+/* Cell features (playable approximation, pictures picked on the sheets):
+ * ladder from WALLA, generator machine and shop door from DOORS1. */
+static void play_draw_feature(const TextureAtlas *atlas, const MapCell *c,
+                              int forward, int lateral, uint32_t *work) {
+    switch (c->type) {
+    case CELL_STAIRS_UP:
+    case CELL_STAIRS_DOWN:
+        play_draw_sprite(atlas, atlas->wall_sheets[0], 250, 108, 30, 92,
+                         forward, lateral, 100, work);
+        break;
+    case CELL_GENERATOR:
+        play_draw_sprite(atlas, atlas->door_sheet, 194, 139, 27, 29,
+                         forward, lateral, 70, work);
+        break;
+    case CELL_SHOP:
+        play_draw_sprite(atlas, atlas->door_sheet, 59, 0, 37, 75,
+                         forward, lateral, 95, work);
+        break;
+    default:
+        break;
     }
 }
 
@@ -631,7 +663,16 @@ void viewport_render_playable(const CaptiveViewWindow *window,
     static const int fwd_x[4] = { 0, 1, 0, -1 };
     static const int fwd_y[4] = { -1, 0, 1, 0 };
     for (int f = 4; f >= 0; --f) {
-        /* Creatures inside depth-f cells sit behind the depth-f front faces. */
+        /* Cell features and creatures inside depth-f cells sit behind the
+         * depth-f front faces. */
+        if (f >= 1) {
+            static const int feat_order[3] = { -1, 1, 0 };
+            for (int k = 0; k < 3; ++k) {
+                const MapCell *fc = play_cell(window, f, feat_order[k]);
+                if (fc && !play_solid(fc))
+                    play_draw_feature(atlas, fc, f, feat_order[k], work);
+            }
+        }
         if (gs && cl && f >= 1) {
             int d = gs->party_dir & 3, r = (d + 1) & 3;
             for (int ci = 0; ci < cl->num_creatures && ci < MAX_CREATURES; ++ci) {

@@ -1069,3 +1069,21 @@ msgstr ""
 
 msgid "DESTROYED"
 msgstr ""
+
+msgid "SHOP"
+msgstr ""
+
+msgid "For: %s"
+msgstr ""
+
+msgid "ENTER buy  R repair"
+msgstr ""
+
+msgid "ESC leave  1-4 droid"
+msgstr ""
+
+msgid "Generator destroyed!"
+msgstr ""
+
+msgid "Mission complete!"
+msgstr ""

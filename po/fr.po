@@ -1050,3 +1050,21 @@ msgstr "R:RENOMMER  S:ÉCHANGER  ENTRÉE:JOUER"
 
 msgid "DESTROYED"
 msgstr "DÉTRUIT"
+
+msgid "SHOP"
+msgstr "BOUTIQUE"
+
+msgid "For: %s"
+msgstr "Pour : %s"
+
+msgid "ENTER buy  R repair"
+msgstr "ENTRÉE achat R répar."
+
+msgid "ESC leave  1-4 droid"
+msgstr "ÉCHAP sortir 1-4 robot"
+
+msgid "Generator destroyed!"
+msgstr "Générateur détruit !"
+
+msgid "Mission complete!"
+msgstr "Mission accomplie !"

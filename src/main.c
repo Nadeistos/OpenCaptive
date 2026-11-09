@@ -2639,6 +2639,16 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
                 if (gs->generators_destroyed > gen_before) {
                     sfx_play(&sfx, SFX_GENERATOR);
                     generator_flash_ttl = 12;
+                    msg_push(_("Generator destroyed!"), 0xFF44FF44);
+                    /* Playable Captive: finishing the base advances the
+                     * campaign; the holomap's L key lands on the next one. */
+                    if (gs->game_type == GAME_CAPTIVE && !captive_use_gm_map &&
+                        gs->mode == STATE_HOLAMAP) {
+                        gs->mission++;
+                        captive_holamap_reset(gs->mission);
+                        music_play_for_game(gs, MUSIC_HOLOMAP);
+                        msg_push(_("Mission complete!"), 0xFF44FF44);
+                    }
                 }
                 if (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT) {
                     CellType cell_after = gs->levels[gs->current_level].cells[ty][tx].type;
@@ -2995,6 +3005,49 @@ static void captive_playable_hud(const GameState *gs, uint32_t *fb) {
     }
 }
 
+/* Playable shop: keep the game screen and list the stock inside the
+ * viewport (the SHOP1/SHOP2 sheets are scenery pieces, not a shop screen). */
+static void captive_playable_shop_render(const GameState *gs, uint32_t *fb) {
+    const int W = CAPTIVE_ORIGINAL_WIDTH, H = CAPTIVE_ORIGINAL_HEIGHT;
+    const int x0 = CAPTIVE_VIEWPORT_X, y0 = CAPTIVE_VIEWPORT_Y;
+    const int vw = CAPTIVE_VIEWPORT_WIDTH, vh = CAPTIVE_VIEWPORT_HEIGHT;
+    draw_rect(fb, W, H, x0, y0, vw, vh, 0xFF0C1018);
+    draw_rect(fb, W, H, x0, y0, vw, 10, 0xFF283850);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + 2, _("SHOP"), 0xFFFFD040, 1);
+    char gold[32];
+    snprintf(gold, sizeof(gold), "%d", shop.gold);
+    draw_simple_text(fb, W, H, x0 + vw - 3 - (int)strlen(gold) * 6, y0 + 2,
+                     gold, 0xFFFFD040, 1);
+    const int rows = 7;
+    int first = shop.selected - (rows - 2);
+    if (first > shop.num_items - rows) first = shop.num_items - rows;
+    if (first < 0) first = 0;
+    for (int row = 0; row < rows && first + row < shop.num_items; ++row) {
+        int i = first + row;
+        const Item *it = item_db_get(&item_db, shop.item_ids[i]);
+        if (!it) continue;
+        int y = y0 + 13 + row * 10;
+        bool sel = i == shop.selected;
+        bool afford = shop.gold >= it->price;
+        if (sel) draw_rect(fb, W, H, x0 + 1, y - 1, vw - 2, 9, 0xFF203060);
+        char name[17];
+        snprintf(name, sizeof(name), "%s", it->name);
+        draw_simple_text(fb, W, H, x0 + 3, y, name,
+                         !afford ? 0xFF707070 : sel ? 0xFFFFFFFF : 0xFFC0C0C0, 1);
+        char price[8];
+        snprintf(price, sizeof(price), "%u", (unsigned)it->price);
+        draw_simple_text(fb, W, H, x0 + vw - 3 - (int)strlen(price) * 6, y,
+                         price, afford ? 0xFFE0C040 : 0xFF806020, 1);
+    }
+    char who[40];
+    snprintf(who, sizeof(who), _("For: %s"), gs->droids[gs->selected_droid].name);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 28, who, 0xFF80C0FF, 1);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 19,
+                     _("ENTER buy  R repair"), 0xFF909090, 1);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 10,
+                     _("ESC leave  1-4 droid"), 0xFF909090, 1);
+}
+
 int main(int argc, char *argv[]) {
     static char default_data_path[512];
     get_default_data_path(default_data_path, sizeof(default_data_path));
@@ -3032,6 +3085,7 @@ int main(int argc, char *argv[]) {
     const char *verify_data = NULL;
     const char *capture_frame_path = NULL;
     const char *input_script = NULL;
+    const char *place_party = NULL;
     bool capture_failed = false;
     const char *dos_vga_dump_path = NULL;
     const char *dos_vga_output_path = NULL;
@@ -3098,7 +3152,8 @@ int main(int argc, char *argv[]) {
                 "  --features-config <f> Load features from config file\n\n"
                 "  --verify-data <name>  Verify data by SHA-256: captive, liberation, all\n\n"
                 "  --capture-frame <ppm> Save one unscaled native game frame, then exit\n"
-                "  --input-script <keys> Queue SDL key names (comma-separated) before the first frame\n\n"
+                "  --input-script <keys> Queue SDL key names (comma-separated) before the first frame\n"
+                "  --place-party <l,x,y,dir> Start the dungeon at a given cell (dir 0=N..3=W)\n\n"
                 "  --extract-dos-vga <dump> <ppm>  Extract a 320x200 DOS VGA reference frame\n\n"
                 "  --captive-dos-dump <dump>  Decode/reload a real DOSBox-X CAPPO memory image\n"
                 "  --captive-dos-ds <hex>     CAPPO data segment for the dump (default 0E3F)\n"
@@ -3304,6 +3359,8 @@ int main(int argc, char *argv[]) {
             capture_frame_path = argv[++i];
         } else if (strcmp(argv[i], "--input-script") == 0 && i + 1 < argc) {
             input_script = argv[++i];
+        } else if (strcmp(argv[i], "--place-party") == 0 && i + 1 < argc) {
+            place_party = argv[++i];
         } else if (strcmp(argv[i], "--extract-dos-vga") == 0 && i + 2 < argc) {
             dos_vga_dump_path = argv[++i];
             dos_vga_output_path = argv[++i];
@@ -3621,6 +3678,18 @@ int main(int argc, char *argv[]) {
                     capture_failed = capture_frame_path != NULL;
                 } else {
                     captive_playable_setup(&gs);
+                    /* Development aid: --place-party LEVEL,X,Y,DIR puts the
+                     * party at a known cell for headless captures. */
+                    int pl, px, py, pd;
+                    if (place_party &&
+                        sscanf(place_party, "%d,%d,%d,%d", &pl, &px, &py, &pd) == 4 &&
+                        pl >= 0 && pl < gs.num_levels && px >= 0 && px < MAP_WIDTH &&
+                        py >= 0 && py < MAP_HEIGHT && pd >= 0 && pd < 4) {
+                        gs.current_level = pl;
+                        gs.party_x = px;
+                        gs.party_y = py;
+                        gs.party_dir = (Direction)pd;
+                    }
                     /* Optional scripted moves (WASD/arrows-as-letters) for
                      * headless capture verification, e.g. CAPTIVE_MOVES=wwaw. */
                     const char *moves = getenv("CAPTIVE_MOVES");
@@ -4482,9 +4551,24 @@ int main(int argc, char *argv[]) {
                                  * press.  Without this guard, holding the key
                                  * let auto-repeat buy the same item until the
                                  * inventory filled and the gold ran out. */
-                                if (!event.key.repeat)
-                                    shop_buy(&shop, &item_db, &gs);
+                                if (!event.key.repeat) {
+                                    const Item *want = shop.selected >= 0 &&
+                                        shop.selected < shop.num_items
+                                        ? item_db_get(&item_db, shop.item_ids[shop.selected])
+                                        : NULL;
+                                    char bmsg[64];
+                                    if (shop_buy(&shop, &item_db, &gs) && want) {
+                                        snprintf(bmsg, sizeof(bmsg), _("Purchased: %s"), want->name);
+                                        msg_push(bmsg, 0xFF44FF44);
+                                    } else {
+                                        msg_push(_("Cannot buy that item."), 0xFFFF4444);
+                                    }
+                                }
                                 break;
+                            case SDLK_1: gs.selected_droid = 0; break;
+                            case SDLK_2: gs.selected_droid = 1; break;
+                            case SDLK_3: gs.selected_droid = 2; break;
+                            case SDLK_4: gs.selected_droid = 3; break;
                             case SDLK_R:
                                 if (!event.key.repeat)
                                     shop_repair(&shop, &gs, gs.selected_droid);
@@ -5569,9 +5653,19 @@ int main(int argc, char *argv[]) {
                 break;
 
             case STATE_SHOP:
-                shop_render(&shop, &item_db, framebuffer,
-                            CAPTIVE_ORIGINAL_WIDTH, CAPTIVE_ORIGINAL_HEIGHT,
-                            shop_bg);
+                if (gs.game_type == GAME_CAPTIVE && !captive_use_gm_map &&
+                    gs.num_levels > 0) {
+                    if (hud_bg)
+                        memcpy(framebuffer, hud_bg,
+                               CAPTIVE_ORIGINAL_WIDTH * CAPTIVE_ORIGINAL_HEIGHT *
+                               sizeof(uint32_t));
+                    captive_playable_hud(&gs, framebuffer);
+                    captive_playable_shop_render(&gs, framebuffer);
+                } else {
+                    shop_render(&shop, &item_db, framebuffer,
+                                CAPTIVE_ORIGINAL_WIDTH, CAPTIVE_ORIGINAL_HEIGHT,
+                                shop_bg);
+                }
                 break;
 
             case STATE_BAR: {

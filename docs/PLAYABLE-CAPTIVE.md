@@ -19,7 +19,7 @@ From the holomap, `L` also enters the dungeon.
 | Left / A, Right / D | turn |
 | Q / E | strafe |
 | Space | selected droid attacks |
-| F / Enter | interact: open door, use shop, destroy generator |
+| F / Enter | interact: open door, enter shop, destroy generator |
 | Keypad 1 / Keypad 3 | climb up / down a ladder (stairs cell) |
 | 1-4 | select droid |
 | I | inventory, T terminal, M map overlay |
@@ -47,9 +47,19 @@ From the holomap, `L` also enters the dungeon.
   when low) and energy (blue) bars and numbers; the selected droid has a
   yellow frame. The text panel under the viewport shows the last messages.
 - **French catalogue** (`po/fr.po`) is complete; the 5x7 font folds accents.
-- **Test aid.** `--input-script "Right,Up,Space"` replays SDL key names, one
+- **Cell features.** Ladders (stairs), the generator and the shop door are
+  drawn standing in their cell.
+- **Shop.** Facing the shop door, Enter opens the stock list inside the
+  viewport (the game screen stays visible): Up/Down select, Enter buys for the
+  selected droid (1-4 to change), R repairs, Escape leaves. Purchases are
+  reported in the message panel.
+- **Mission flow.** Destroying the last generator (Enter in front of it)
+  completes the base, advances the mission and returns to the holomap; `L`
+  lands on the next base with the same party.
+- **Test aids.** `--input-script "Right,Up,Space"` replays SDL key names, one
   every 12 frames; with `--capture-frame` the capture waits for the script
   and prints the end state (position, creatures, droid HP).
+  `--place-party LEVEL,X,Y,DIR` starts the dungeon at a given cell.
 
 ## Known approximations
 
@@ -59,7 +69,12 @@ From the holomap, `L` also enters the dungeon.
 - Doors are the closed iris from `DOORS1.PL5` scaled onto the front face;
   locked doors are tinted red. The original per-depth door pieces are not
   mapped yet.
-- Stairs, shop, generator and terminal cells are drawn as open floor.
+- Ladder (WALLA), generator and shop door (DOORS1) are hand-picked pictures
+  scaled per depth; terminals, pits and pressure plates are drawn as floor.
+  SHOP1/SHOP2 are scenery pieces, not a shop screen, so the shop is a text
+  list.
+- The holomap between missions is the author's English reference capture
+  and always reads "MISSION 0001".
 - One hand-picked near-size sprite per ALIEN sheet (and per CAPPO frame
   byte on ALIEN2) is scaled for every depth; CAPPO's per-type, per-depth
   creature pieces are not mapped, so several types share a picture and
