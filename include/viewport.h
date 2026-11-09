@@ -24,6 +24,15 @@ void viewport_render_original_descriptors(const CaptiveViewWindow *window,
                                           uint32_t *framebuffer,
                                           int fb_width, int fb_height);
 
+/* Playable corridor renderer.  Paints far-to-near, outer-to-centre, using the
+ * CAPPO descriptor records as a piece catalogue: ceiling, per-depth floor
+ * bands, front faces at planes 1..4 and side faces between planes 0..4.
+ * Occlusion comes from painter's order instead of the original visibility
+ * table.  `parity` alternates the mirrored piece variants as the party moves. */
+void viewport_render_playable(const CaptiveViewWindow *window,
+                              const TextureAtlas *atlas, int parity,
+                              uint32_t *framebuffer, int fb_width, int fb_height);
+
 /* Resolve a recovered DOS descriptor source bank to its content-addressed
  * panel sheet. Bank 4 is the ROOFS sheet in CAPPO's descriptor table. */
 int viewport_descriptor_source_sheet(const TextureAtlas *atlas,

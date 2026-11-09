@@ -431,6 +431,174 @@ void viewport_render_original_descriptors(const CaptiveViewWindow *window,
     }
 }
 
+/* ---- Playable corridor renderer ------------------------------------------
+ * Piece IDs below are runtime CAPPO descriptor indices; each pair (id, id+1)
+ * holds the two alternating variants.  Geometry (screen planes):
+ *   plane 0 = x 0..144, plane 1 = 16..128, plane 2 = 32..112,
+ *   plane 3 = 40..104,  plane 4 = 48..96.
+ * A cell at forward f shows its front face on plane f and its side face
+ * between planes f and f+1. */
+static const int play_front_center[5] = { -1, 16, 10, 4, 44 };
+static const int play_front_left[5]   = { -1, 14, 8, 2, 42 };
+static const int play_front_right[5]  = { -1, 18, 12, 6, 46 };
+static const int play_side_left[4]    = { 26, 24, 22, 20 };
+static const int play_side_right[4]   = { 34, 32, 30, 28 };
+/* Floor bands of the cell at forward f: lateral -1, 0, +1. */
+static const int play_floor[4][3] = {
+    { 72, 74, 76 }, { 66, 68, 70 }, { 60, 62, 64 }, { 52, 54, 56 },
+};
+
+static bool play_solid(const MapCell *c) {
+    return c->type == CELL_WALL || c->type == CELL_DOOR ||
+           c->type == CELL_DOOR_LOCKED;
+}
+
+static const MapCell *play_cell(const CaptiveViewWindow *w, int forward,
+                                int lateral) {
+    if (forward < -CAPTIVE_VIEW_WINDOW_ORIGIN || lateral < -CAPTIVE_VIEW_WINDOW_ORIGIN ||
+        forward > CAPTIVE_VIEW_WINDOW_ORIGIN + 2 || lateral > CAPTIVE_VIEW_WINDOW_ORIGIN)
+        return NULL;
+    if (forward > CAPTIVE_VIEW_WINDOW_ORIGIN) {
+        /* Ranges 3 and 4 live only in the 19-cell visible sample. */
+        for (int i = 0; i < CAPTIVE_VISIBLE_CELL_COUNT; ++i)
+            if (captive_visible_cell_positions[i].forward == forward &&
+                captive_visible_cell_positions[i].lateral == lateral)
+                return &w->visible[i];
+        return NULL;
+    }
+    return &w->cells[forward + CAPTIVE_VIEW_WINDOW_ORIGIN]
+                    [lateral + CAPTIVE_VIEW_WINDOW_ORIGIN];
+}
+
+static void play_blit(int id, int parity, const TextureAtlas *atlas, int sheet,
+                      uint32_t *work) {
+    if (id < 0) return;
+    int pick = id + (parity & 1);
+    if (pick >= CAPTIVE_CAPPO_DESCRIPTOR_COUNT) pick = id;
+    descriptor_blit_sheet(&captive_cappo_descriptors[pick], atlas, sheet, work,
+                          CAPTIVE_DOS_VIEW_STRIDE);
+}
+
+static int play_wall_sheet(const TextureAtlas *atlas, const MapCell *c, int face) {
+    unsigned set = c->wall_tex[face & 3];
+    if (set >= 5U) set = 0;
+    return atlas->wall_sheets[set];
+}
+
+/* Front-face rectangle of plane f (1..4) in the 160-stride work buffer. */
+static const int play_plane_rect[5][4] = {
+    { 0, 0, 144, 112 }, { 16, 9, 112, 98 }, { 32, 25, 80, 70 },
+    { 40, 37, 64, 49 }, { 48, 45, 48, 35 },
+};
+
+/* Closed iris door on the DOORS1 sheet (x 131..189, y 0..59). */
+#define PLAY_IRIS_X 131
+#define PLAY_IRIS_Y 0
+#define PLAY_IRIS_W 59
+#define PLAY_IRIS_H 60
+
+/* Scale the iris into the middle of a plane's front face (playable
+ * approximation: the original's per-depth door pieces are not mapped yet). */
+static void play_draw_door(const TextureAtlas *atlas, int plane, bool locked,
+                           uint32_t *work) {
+    if (plane < 1 || plane > 4 || atlas->door_sheet < 0) return;
+    const Texture *t = gfx_get(&atlas->gfx, atlas->door_sheet);
+    if (!t || !t->pixels || !t->indices) return;
+    const int *r = play_plane_rect[plane];
+    int size = r[3] * 3 / 4;
+    if (size > r[2] * 3 / 4) size = r[2] * 3 / 4;
+    int ox = r[0] + (r[2] - size) / 2;
+    int oy = r[1] + (r[3] - size) / 2;
+    for (int y = 0; y < size; ++y) {
+        int sy = PLAY_IRIS_Y + y * PLAY_IRIS_H / size;
+        for (int x = 0; x < size; ++x) {
+            int sx = PLAY_IRIS_X + x * PLAY_IRIS_W / size;
+            size_t si = (size_t)sy * (size_t)t->width + (size_t)sx;
+            if (t->indices[si] == 0) continue;
+            uint32_t c = t->pixels[si];
+            if (locked) /* red tint marks doors that need a key */
+                c = (c & 0xFF000000u) | ((c & 0x00FF0000u)) |
+                    (((c >> 9) & 0x7Fu) << 8) | ((c & 0xFFu) >> 1);
+            int dx = ox + x, dy = oy + y;
+            if (dx >= 0 && dx < CAPTIVE_VIEWPORT_WIDTH &&
+                dy >= 0 && dy < (int)CAPTIVE_DOS_VIEW_HEIGHT)
+                work[(size_t)dy * CAPTIVE_DOS_VIEW_STRIDE + (size_t)dx] = c;
+        }
+    }
+}
+
+void viewport_render_playable(const CaptiveViewWindow *window,
+                              const TextureAtlas *atlas, int parity,
+                              uint32_t *framebuffer, int fb_width, int fb_height) {
+    if (!window || !atlas || !atlas->loaded || !framebuffer ||
+        fb_width <= 0 || fb_height <= 0)
+        return;
+
+    uint32_t work[CAPTIVE_DOS_VIEW_STRIDE * CAPTIVE_DOS_VIEW_HEIGHT];
+    memset(work, 0, sizeof(work));
+    int roof = atlas->roof_sheet;
+    int facing = window->facing;
+
+    /* Ceiling and floor.  The descriptor bank-4 offsets do not address the
+     * ROOFS sheet as stored on disk, so the playable path copies its two
+     * 144x44 halves directly: the upper half as the ceiling, the lower half
+     * mirrored vertically as the floor (approximation until bank 4 is
+     * decoded).  Style 1 is the grey right-hand set. */
+    (void)play_floor;
+    const Texture *rt = roof >= 0 ? gfx_get(&atlas->gfx, roof) : NULL;
+    if (rt && rt->pixels && rt->width >= 288 && rt->height >= 88) {
+        int sx0 = window->roof_style ? 144 : 0;
+        for (int y = 0; y < 44; ++y)
+            for (int x = 0; x < CAPTIVE_VIEWPORT_WIDTH; ++x) {
+                int mx = (parity & 1) ? CAPTIVE_VIEWPORT_WIDTH - 1 - x : x;
+                work[(size_t)y * CAPTIVE_DOS_VIEW_STRIDE + (size_t)x] =
+                    rt->pixels[(size_t)y * (size_t)rt->width + (size_t)(sx0 + mx)];
+                work[(size_t)(CAPTIVE_DOS_VIEW_HEIGHT - 1 - y) * CAPTIVE_DOS_VIEW_STRIDE +
+                     (size_t)x] =
+                    rt->pixels[(size_t)(44 + y) * (size_t)rt->width + (size_t)(sx0 + mx)];
+            }
+    }
+
+    for (int f = 4; f >= 0; --f) {
+        /* Outer cells first so that inner faces overlap them. */
+        static const int order[5] = { -2, 2, -1, 1, 0 };
+        for (int k = 0; k < 5; ++k) {
+            int lat = order[k];
+            const MapCell *c = play_cell(window, f, lat);
+            if (!c || !play_solid(c)) continue;
+            /* Side face, seen when the cell sits beside the open centre
+             * column at the same depth. */
+            if (f <= 3 && (lat == -1 || lat == 1)) {
+                const MapCell *centre = play_cell(window, f, 0);
+                if (centre && !play_solid(centre)) {
+                    int face = lat < 0 ? (facing + 1) & 3 : (facing + 3) & 3;
+                    play_blit(lat < 0 ? play_side_left[f] : play_side_right[f],
+                              parity, atlas, play_wall_sheet(atlas, c, face), work);
+                }
+            }
+            if (f == 0) continue;
+            int face = (facing + 2) & 3;
+            int sheet = play_wall_sheet(atlas, c, face);
+            int id = -1;
+            if (lat == 0) id = play_front_center[f];
+            else if (lat == -1) id = play_front_left[f];
+            else if (lat == 1) id = play_front_right[f];
+            else if (f == 4) id = lat < 0 ? 40 : 48;
+            play_blit(id, parity, atlas, sheet, work);
+            if (lat == 0 && (c->type == CELL_DOOR || c->type == CELL_DOOR_LOCKED))
+                play_draw_door(atlas, f, c->type == CELL_DOOR_LOCKED, work);
+        }
+    }
+
+    for (int y = 0; y < CAPTIVE_VIEWPORT_HEIGHT &&
+                    CAPTIVE_VIEWPORT_Y + y < fb_height; ++y)
+        for (int x = 0; x < CAPTIVE_VIEWPORT_WIDTH &&
+                        CAPTIVE_VIEWPORT_X + x < fb_width; ++x)
+            framebuffer[(size_t)(CAPTIVE_VIEWPORT_Y + y) * (size_t)fb_width +
+                        (size_t)(CAPTIVE_VIEWPORT_X + x)] =
+                work[(size_t)y * CAPTIVE_DOS_VIEW_STRIDE + (size_t)x];
+}
+
 void viewport_render(const CaptiveViewWindow *window,
                      const TextureAtlas *atlas,
                      uint32_t *framebuffer, int fb_width, int fb_height) {

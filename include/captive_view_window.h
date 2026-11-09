@@ -19,6 +19,8 @@ typedef struct {
     /* True when the original visibility pass clears the copied cell.  The
      * source map is never mutated; a renderer must skip hidden cells. */
     bool hidden[CAPTIVE_VISIBLE_CELL_COUNT];
+    /* Playable renderer: 0 = brown ROOFS set, 1 = grey set. */
+    int roof_style;
 } CaptiveViewWindow;
 
 typedef struct {
