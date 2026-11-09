@@ -995,8 +995,7 @@ static void show_missing_data_dialog(const char *data_path) {
 
 static bool load_intro_anm(const DataVFS *vfs, ANMAnimation *anim) {
     size_t size;
-    uint8_t *data = vfs_find_sha256(vfs,
-        "1ec1f90adbcfcb3b99b64a56cf1c669b409b7d3a76bc09cedb056f503bfb1959", &size);
+    uint8_t *data = captive_find_required_source(vfs, 1, &size);
     if (!data) return false;
     bool ok = anm_decode(data, size, anim);
     free(data);

@@ -49,6 +49,29 @@ and must parse as one 29 304-byte code HUNK. This protects the recovery work
 from accepting a same-sized but different payload. It is a verified original
 source artifact, not yet a claim of C implementation parity.
 
+### French DOS edition (HRVG translation)
+
+The French fan translation of DOS v1.06 (credited to HRVG, files dated
+2022-2023) is accepted as an alternative identity for the four sources that
+carry text. Every other DOS surface and all music are byte-identical to the
+English release. Alternatives live in `src/data/captive_scene_assets.c` and
+are tried only after the primary hash.
+
+| Source | English v1.06 | French (HRVG) |
+| --- | --- | --- |
+| CAPPO.EXE (packed) | `71bcf404…faafde` | `ae3dd438…fb90ab` (73 511 bytes) |
+| TEST0.ANM (intro) | `1ec1f90a…bb1959` | `10df32ee…fc579d` |
+| GAMESCRN.PL5 (HUD) | `dfca77f0…c2b707` | `2b92b7d2…17eb7` |
+| ICONS.PL5 | `ce00ba2b…5b017` | `dbe724db…339bf` |
+
+The translated CAPPO.EXE unpacks to a 144 306-byte image whose game-state data
+segment is `0x0E4F`, not `0x0E3F`. Native play does not execute or read
+CAPPO.EXE, so this only matters for the DOSBox-X dump tools: pass
+`--captive-dos-ds 0E4F`, and treat other DS-relative offsets recovered from the
+English binary as unverified for this edition. The holomap navigation frames
+in `assets/captive/` are English reference captures and still show English
+labels.
+
 Music is loaded the same way. The MIDI system owns each retrieved buffer for
 the lifetime of the selected track, preventing a use-after-free during track
 changes.

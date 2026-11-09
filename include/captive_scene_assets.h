@@ -18,4 +18,15 @@ bool captive_scene_assets_available(const DataVFS *vfs);
 bool captive_data_available(const DataVFS *vfs);
 const char *captive_required_source_hash(size_t index);
 
+/* Known alternative edition of the same DOS v1.06 media: the French fan
+ * translation by HRVG (2022-2023).  It only changes the files that carry
+ * text (CAPPO.EXE, TEST0.ANM, GAMESCRN.PL5, ICONS.PL5); every other surface
+ * is byte-identical.  Returns NULL when the slot has no alternative. */
+const char *captive_required_source_alt_hash(size_t index);
+const char *captive_view_source_alt_hash(int index);
+
+/* Load a required source by its primary hash, then by its alternative. */
+uint8_t *captive_find_required_source(const DataVFS *vfs, size_t index,
+                                      size_t *size);
+
 #endif

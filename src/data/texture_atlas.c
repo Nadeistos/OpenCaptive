@@ -28,9 +28,13 @@ bool texture_atlas_load(TextureAtlas *atlas, const DataVFS *vfs) {
 
     if (!gfx_init(&atlas->gfx, vfs)) return false;
 
-    for (int i = 0; i < CAPTIVE_VIEW_SOURCE_COUNT; ++i)
+    for (int i = 0; i < CAPTIVE_VIEW_SOURCE_COUNT; ++i) {
         atlas->view_sheets[i] = gfx_load_pl5_hash(&atlas->gfx,
                                                   captive_view_source_hashes[i]);
+        const char *alt = captive_view_source_alt_hash(i);
+        if (atlas->view_sheets[i] < 0 && alt)
+            atlas->view_sheets[i] = gfx_load_pl5_hash(&atlas->gfx, alt);
+    }
 
     for (int i = 0; i < 5; ++i) atlas->wall_sheets[i] = atlas->view_sheets[i];
     atlas->roof_sheet = atlas->view_sheets[14];

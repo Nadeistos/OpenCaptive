@@ -35,11 +35,49 @@ const char *const captive_view_source_hashes[CAPTIVE_VIEW_SOURCE_COUNT] = {
     "70e0b9bfbaa5dfd12643b50cbe10d0b664de2fb1106d8ff0f2fde1ce6f443bbe",
 };
 
+/* French translation by HRVG (2022-2023) of the DOS v1.06 release.
+ * Identified from the user's media: CAPPO.EXE is LZEXE-packed 73 511 bytes
+ * (data segment 0x0E4F instead of 0x0E3F), and the three surfaces carry the
+ * translated title, credits and HUD labels. */
+static const char *const captive_boot_source_alt_hashes[CAPTIVE_BOOT_SOURCE_COUNT] = {
+    "ae3dd438a91f24a66b0062322a7e460fef1ff0de2dd085031a4618dc50fb90ab", /* CAPPO.EXE */
+    "10df32ee401079617d3c392a6ed6bb6cdb92476f269c0faaa9ecb51d62fc579d", /* TEST0.ANM */
+};
+
+static const char *captive_view_source_alt_hashes[CAPTIVE_VIEW_SOURCE_COUNT] = {
+    [18] = "2b92b7d254295dc23f8417d3387c5013c7522d54cac85ac88e74696414a17eb7", /* GAMESCRN.PL5 */
+    [19] = "dbe724db6b474dcb455d610972c6f7e73c5ef9f1af21f2f0d98366eb5ca339bf", /* ICONS.PL5 */
+};
+
+const char *captive_view_source_alt_hash(int index) {
+    if (index < 0 || index >= CAPTIVE_VIEW_SOURCE_COUNT) return NULL;
+    return captive_view_source_alt_hashes[index];
+}
+
+const char *captive_required_source_alt_hash(size_t index) {
+    if (index < CAPTIVE_BOOT_SOURCE_COUNT)
+        return captive_boot_source_alt_hashes[index];
+    if (index < CAPTIVE_REQUIRED_SOURCE_COUNT)
+        return captive_view_source_alt_hash((int)(index - CAPTIVE_BOOT_SOURCE_COUNT));
+    return NULL;
+}
+
+uint8_t *captive_find_required_source(const DataVFS *vfs, size_t index,
+                                      size_t *size) {
+    const char *primary = captive_required_source_hash(index);
+    if (!vfs || !primary) return NULL;
+    uint8_t *data = vfs_find_sha256(vfs, primary, size);
+    if (data) return data;
+    const char *alt = captive_required_source_alt_hash(index);
+    return alt ? vfs_find_sha256(vfs, alt, size) : NULL;
+}
+
 bool captive_scene_assets_available(const DataVFS *vfs) {
     if (!vfs || !vfs->initialized) return false;
     for (int i = 0; i < CAPTIVE_VIEW_SOURCE_COUNT; ++i) {
         size_t size = 0;
-        uint8_t *data = vfs_find_sha256(vfs, captive_view_source_hashes[i], &size);
+        uint8_t *data = captive_find_required_source(
+            vfs, (size_t)(CAPTIVE_BOOT_SOURCE_COUNT + i), &size);
         if (!data) return false;
         free(data);
     }
@@ -58,8 +96,7 @@ bool captive_data_available(const DataVFS *vfs) {
     if (!vfs || !vfs->initialized) return false;
     for (size_t i = 0; i < CAPTIVE_REQUIRED_SOURCE_COUNT; ++i) {
         size_t size = 0;
-        uint8_t *data = vfs_find_sha256(vfs, captive_required_source_hash(i),
-                                         &size);
+        uint8_t *data = captive_find_required_source(vfs, i, &size);
         if (!data) return false;
         free(data);
     }

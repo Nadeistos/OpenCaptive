@@ -650,6 +650,12 @@ add_executable(test_liberation_city_text tests/test_liberation_city_text.c
 target_include_directories(test_liberation_city_text PRIVATE ${CMAKE_SOURCE_DIR}/include)
 add_test(NAME liberation_city_text COMMAND test_liberation_city_text)
 
+add_executable(test_captive_editions tests/test_captive_editions.c
+    src/data/captive_scene_assets.c src/data/data_vfs.c src/data/amiga_ofs.c src/data/sha256.c)
+target_include_directories(test_captive_editions PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_captive_editions PRIVATE ZLIB::ZLIB)
+add_test(NAME captive_editions COMMAND test_captive_editions)
+
 # The tests use assert() for both execution and verification.  Release builds
 # define NDEBUG, which would otherwise turn those test expressions into no-ops.
 function(opencaptive_enable_test_assertions target)
