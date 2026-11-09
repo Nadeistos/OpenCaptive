@@ -2894,6 +2894,7 @@ int main(int argc, char *argv[]) {
     const char *lang_override = NULL;
     const char *verify_data = NULL;
     const char *capture_frame_path = NULL;
+    const char *input_script = NULL;
     bool capture_failed = false;
     const char *dos_vga_dump_path = NULL;
     const char *dos_vga_output_path = NULL;
@@ -2958,7 +2959,8 @@ int main(int argc, char *argv[]) {
                 "  --cross-save-export   Enable portable save export\n"
                 "  --features-config <f> Load features from config file\n\n"
                 "  --verify-data <name>  Verify data by SHA-256: captive, liberation, all\n\n"
-                "  --capture-frame <ppm> Save one unscaled native game frame, then exit\n\n"
+                "  --capture-frame <ppm> Save one unscaled native game frame, then exit\n"
+                "  --input-script <keys> Queue SDL key names (comma-separated) before the first frame\n\n"
                 "  --extract-dos-vga <dump> <ppm>  Extract a 320x200 DOS VGA reference frame\n\n"
                 "  --captive-dos-dump <dump>  Decode/reload a real DOSBox-X CAPPO memory image\n"
                 "  --captive-dos-ds <hex>     CAPPO data segment for the dump (default 0E3F)\n"
@@ -3160,6 +3162,8 @@ int main(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "--capture-frame") == 0 && i + 1 < argc) {
             capture_frame_path = argv[++i];
+        } else if (strcmp(argv[i], "--input-script") == 0 && i + 1 < argc) {
+            input_script = argv[++i];
         } else if (strcmp(argv[i], "--extract-dos-vga") == 0 && i + 2 < argc) {
             dos_vga_dump_path = argv[++i];
             dos_vga_output_path = argv[++i];
@@ -3571,6 +3575,27 @@ int main(int argc, char *argv[]) {
         exit_status = 1;
     }
     SDL_Event event;
+
+    /* Development aid: queue a comma-separated list of SDL key names (e.g.
+     * "Up,Up,Right") so headless runs with --capture-frame can exercise input
+     * deterministically.  The events are handled by the first frame. */
+    if (input_script) {
+        char keys[512];
+        snprintf(keys, sizeof(keys), "%s", input_script);
+        for (char *tok = strtok(keys, ","); tok; tok = strtok(NULL, ",")) {
+            SDL_Keycode key = SDL_GetKeyFromName(tok);
+            if (key == SDLK_UNKNOWN) {
+                fprintf(stderr, "--input-script: unknown key '%s'\n", tok);
+                continue;
+            }
+            SDL_Event ev;
+            memset(&ev, 0, sizeof(ev));
+            ev.type = SDL_EVENT_KEY_DOWN;
+            ev.key.key = key;
+            ev.key.down = true;
+            SDL_PushEvent(&ev);
+        }
+    }
 
     while (running) {
         uint64_t frame_started = SDL_GetTicks();
