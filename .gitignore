@@ -12,3 +12,9 @@ wiki/
 
 # Local Claude Code dev config: machine-specific absolute paths.
 .claude/
+
+# Local saves written to the working directory
+opencaptive*.sav
+opencaptive*.ocsv
+opencaptive*.png
+opencaptive.ocrp

@@ -641,7 +641,7 @@ msgstr "VAINCU"
 #: src/main.c:3050 src/main.c:3120
 #, c-format
 msgid "Droid %d hit for %d!"
-msgstr "Robot %d touché : %d dégâts !"
+msgstr "Robot %d touché : -%d"
 
 #: src/main.c:3058 src/main.c:3128
 #, c-format
@@ -1116,3 +1116,36 @@ msgstr "PIED"
 
 msgid "HAND"
 msgstr "MAIN"
+
+msgid "Save failed"
+msgstr "Échec de la sauvegarde"
+
+msgid "Game saved (F9 to load)"
+msgstr "Partie sauvegardée (F9 pour charger)"
+
+msgid "No saved game"
+msgstr "Aucune sauvegarde"
+
+msgid "Game loaded"
+msgstr "Partie chargée"
+
+msgid "RESTING... (any key)"
+msgstr "REPOS... (une touche)"
+
+msgid "Woken up: creature nearby!"
+msgstr "Réveil : créature proche !"
+
+msgid "Rest complete"
+msgstr "Repos terminé"
+
+msgid "Rest interrupted"
+msgstr "Repos interrompu"
+
+msgid "Resting..."
+msgstr "Repos..."
+
+msgid "Woken up: under attack!"
+msgstr "Réveil : attaque !"
+
+msgid "No weapon in that hand"
+msgstr "Rien dans cette main"

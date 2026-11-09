@@ -23,6 +23,8 @@ From the holomap, `L` also enters the dungeon.
 | Keypad 1 / Keypad 3 | climb up / down a ladder (stairs cell) |
 | 1-4 | select droid |
 | I | inventory, T terminal, M map overlay |
+| F5 / F9 | save / load (`opencaptive.sav` in the working directory) |
+| Z | rest |
 
 The right-hand control panel is clickable (left button):
 
@@ -34,7 +36,10 @@ The right-hand control panel is clickable (left button):
 | ladder icons (row 3, left / right) | climb up / down |
 | coloured droid bars | select droid 1-4 |
 | four-colour button | inventory |
-| coloured hands | that droid attacks |
+| coloured hands | that droid attacks with that hand (left / right) |
+| disk | save the game (F9 loads) |
+| zZ | rest: fast HP/energy regeneration until woken (creature within 2 cells, attack, or any key) |
+| red hand (stop) | pause |
 
 ## What changed
 
@@ -71,6 +76,20 @@ The right-hand control panel is clickable (left button):
   slots). Tab switches page, Up/Down or a click selects, Enter or a second
   click equips, uses (batteries recharge energy) or removes, 1-4 changes
   droid, Escape returns to the dungeon.
+- **Saves, rest, pause.** The disk button (or F5) saves, F9 loads; both
+  report in the message panel. Rest regenerates 1 HP and 1 energy per droid
+  every 15 ticks. The pause screen dims the game screen once instead of
+  fading it to black.
+- **Hands and ranged weapons.** Each panel hand attacks with that hand's
+  weapon only ("No weapon in that hand" otherwise); Space uses the best
+  weapon in range. Ranged weapons (pistol, rifle, laser…) use the engine's
+  per-weapon range and line of sight.
+- **Wall devices and pits.** Buttons and levers show the DOORS1 hand panel on
+  their wall (dimmed once used), power sockets the socket picture; pits are
+  dark holes on the floor ahead.
+- **Holomap mission number** is repainted over the reference capture from
+  mission 2 on.
+- **Messages** are cut to the 23 glyphs of the panel.
 - **Mission flow.** Destroying the last generator (Enter in front of it)
   completes the base, advances the mission and returns to the holomap; `L`
   lands on the next base with the same party.
@@ -78,7 +97,8 @@ The right-hand control panel is clickable (left button):
   every 12 frames; with `--capture-frame` the capture waits for the script
   and prints the end state (position, creatures, droid HP).
   `--place-party LEVEL,X,Y,DIR` starts the dungeon at a given cell.
-  A `Click:X:Y` token clicks the control panel at canvas coordinates.
+  A `Click:X:Y` token clicks the control panel at canvas coordinates and
+  `Wait:N` idles N frames without input.
 
 ## Known approximations
 
@@ -92,8 +112,8 @@ The right-hand control panel is clickable (left button):
   scaled per depth; terminals, pits and pressure plates are drawn as floor.
   SHOP1/SHOP2 are scenery pieces, not a shop screen, so the shop is a text
   list.
-- The holomap between missions is the author's English reference capture
-  and always reads "MISSION 0001".
+- The holomap between missions is the author's English reference capture;
+  only the mission digits are repainted (5x7 font).
 - One hand-picked near-size sprite per ALIEN sheet (and per CAPPO frame
   byte on ALIEN2) is scaled for every depth; CAPPO's per-type, per-depth
   creature pieces are not mapped, so several types share a picture and
@@ -102,8 +122,10 @@ The right-hand control panel is clickable (left button):
   views.
 - The control panel is copied from the original landed-dungeon capture
   (`assets/captive/landed-dungeon-reference.png`), so it is static: the
-  greyed "climb down" icon of that capture is always shown. Left and right
-  hands trigger the same attack; the disk, rest (zZ) and stop buttons do
-  nothing yet.
+  greyed "climb down" icon of that capture is always shown.
+- The disk saves straight away; there is no save/load menu or slot choice.
+- Levers, triple levers and buttons share one picture; hidden buttons and
+  electric wall traps stay invisible; pressure plates are not drawn.
+- No shot or muzzle-flash effect is drawn for ranged attacks.
 - The landing zone uses the base wall set instead of the planet surface.
 - Levels are not Captive's real levels (see `--captive-gm-map`).

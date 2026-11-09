@@ -1135,3 +1135,36 @@ msgstr ""
 
 msgid "HAND"
 msgstr ""
+
+msgid "Save failed"
+msgstr ""
+
+msgid "Game saved (F9 to load)"
+msgstr ""
+
+msgid "No saved game"
+msgstr ""
+
+msgid "Game loaded"
+msgstr ""
+
+msgid "RESTING... (any key)"
+msgstr ""
+
+msgid "Woken up: creature nearby!"
+msgstr ""
+
+msgid "Rest complete"
+msgstr ""
+
+msgid "Rest interrupted"
+msgstr ""
+
+msgid "Resting..."
+msgstr ""
+
+msgid "Woken up: under attack!"
+msgstr ""
+
+msgid "No weapon in that hand"
+msgstr ""

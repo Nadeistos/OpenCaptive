@@ -240,6 +240,8 @@ static void captive_accept_live_frame(GameState *gs,
  * existing combat/inventory systems understand.  The byte-exact GM.EXE port
  * is kept behind --captive-gm-map until its cell semantics are decoded. */
 static bool captive_use_gm_map = false;
+/* Playable rest (zZ button / Z key): fast regeneration until woken. */
+static bool captive_resting = false;
 
 static bool captive_enter_dungeon(GameState *gs) {
     if (captive_use_gm_map)
@@ -2479,6 +2481,40 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
     }
     if (event->type != SDL_EVENT_KEY_DOWN) return;
 
+    if (gs->game_type == GAME_CAPTIVE && !captive_use_gm_map) {
+        if (captive_resting) {
+            captive_resting = false;
+            msg_push(_("Rest interrupted"), 0xFFAAAAAA);
+            if (event->key.key == SDLK_Z) return;
+        } else if (event->key.key == SDLK_Z) {
+            captive_resting = true;
+            msg_push(_("Resting..."), 0xFF80C0FF);
+            return;
+        }
+        if (event->key.key == SDLK_PAUSE) {
+            gs->mode = STATE_PAUSE;
+            gs->paused = true;
+            return;
+        }
+        /* Panel hand buttons: attack with one hand only by hiding the other
+         * hand's weapon for the duration of a normal attack. */
+        if (event->key.key == SDLK_F13 || event->key.key == SDLK_F14) {
+            int hand = event->key.key == SDLK_F13 ? 0 : 1;
+            Droid *d = &gs->droids[gs->selected_droid];
+            if (d->weapons[hand] == 0) {
+                msg_push(_("No weapon in that hand"), 0xFFAAAAAA);
+                return;
+            }
+            uint8_t other = d->weapons[1 - hand];
+            d->weapons[1 - hand] = 0;
+            SDL_Event fire = *event;
+            fire.key.key = SDLK_SPACE;
+            game_handle_input(gs, &fire);
+            d->weapons[1 - hand] = other;
+            return;
+        }
+    }
+
     const DungeonLevel *lvl = &gs->levels[gs->current_level];
     int dx = 0, dy = 0;
 
@@ -2681,12 +2717,15 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
                         fprintf(stderr, "Could not write cross-save: %s\n", cross_path);
                 }
             } else {
-                if (!save_game(gs, &creatures, &puzzles, "opencaptive.sav"))
+                if (!save_game(gs, &creatures, &puzzles, "opencaptive.sav")) {
                     fprintf(stderr, "Could not write Captive save: opencaptive.sav\n");
-                else
+                    msg_push(_("Save failed"), 0xFFFF4444);
+                } else {
                     save_game_write_thumbnail("opencaptive.sav", framebuffer,
                                               CAPTIVE_ORIGINAL_WIDTH,
                                               CAPTIVE_ORIGINAL_HEIGHT);
+                    msg_push(_("Game saved (F9 to load)"), 0xFF44FF44);
+                }
                 if (custom_feat_ptr && custom_feat_ptr->cross_save)
                     if (!cross_save_export(gs, "opencaptive.ocsv"))
                         fprintf(stderr, "Could not write cross-save: opencaptive.ocsv\n");
@@ -2704,8 +2743,12 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
                 if (!load_game(gs, &creatures, &puzzles, path))
                     fprintf(stderr, "Could not load Captive save: %s\n", path);
             } else {
-                if (!load_game(gs, &creatures, &puzzles, "opencaptive.sav"))
+                if (!load_game(gs, &creatures, &puzzles, "opencaptive.sav")) {
                     fprintf(stderr, "Could not load Captive save: opencaptive.sav\n");
+                    msg_push(_("No saved game"), 0xFFFF4444);
+                } else {
+                    msg_push(_("Game loaded"), 0xFF44FF44);
+                }
             }
             return;
         case SDLK_F7:
@@ -2920,9 +2963,33 @@ static void captive_playable_setup(GameState *gs) {
 }
 
 static void captive_playable_tick(GameState *gs) {
-    if (captive_use_gm_map || gs->mode != STATE_GAME) return;
+    if (captive_use_gm_map || gs->mode != STATE_GAME) { captive_resting = false; return; }
     gs->tick++;
     if (gs->move_cooldown > 0) gs->move_cooldown--;
+    if (captive_resting) {
+        for (int ci = 0; ci < creatures.num_creatures && ci < MAX_CREATURES; ++ci) {
+            const Creature *cr = &creatures.creatures[ci];
+            if (cr->active && cr->level == gs->current_level &&
+                abs(cr->x - gs->party_x) <= 2 && abs(cr->y - gs->party_y) <= 2) {
+                captive_resting = false;
+                msg_push(_("Woken up: creature nearby!"), 0xFFFF8844);
+                break;
+            }
+        }
+    }
+    if (captive_resting && gs->tick % 15 == 0) {
+        bool full = true;
+        for (int di = 0; di < 4; di++) {
+            Droid *d = &gs->droids[di];
+            if (d->hp <= 0) continue;
+            if (d->hp < d->hp_max) { d->hp++; full = false; }
+            if (d->energy < d->energy_max) { d->energy++; full = false; }
+        }
+        if (full) {
+            captive_resting = false;
+            msg_push(_("Rest complete"), 0xFF44FF44);
+        }
+    }
     if (gs->tick % 300 == 0) {
         for (int di = 0; di < 4; di++) {
             Droid *d = &gs->droids[di];
@@ -2933,6 +3000,10 @@ static void captive_playable_tick(GameState *gs) {
     }
     if (gs->tick % 10 == 0) {
         combat_tick(&creatures, gs);
+        if (creatures.attack_occurred && captive_resting) {
+            captive_resting = false;
+            msg_push(_("Woken up: under attack!"), 0xFFFF8844);
+        }
         if (creatures.attack_occurred) {
             int ti = creatures.last_attack_target;
             if (ti < 0 || ti >= 4) ti = 0;
@@ -2999,7 +3070,20 @@ static void captive_playable_hud(const GameState *gs, uint32_t *fb) {
     int line = 0;
     for (int mi = 0; mi < MSG_LOG_SIZE && line < 3; mi++) {
         if (msg_log[mi].ttl <= 0 || !msg_log[mi].text[0]) continue;
-        draw_simple_text(fb, W, H, 36, 172 + line * 9, msg_log[mi].text,
+        /* The panel holds 23 glyphs; cut longer messages at a glyph
+         * boundary so they do not spill over the button bank. */
+        char cut[96];
+        const char *src = msg_log[mi].text;
+        size_t bytes = 0;
+        for (int g = 0; g < 23 && src[bytes]; ++g) {
+            const char *q = src + bytes;
+            utf8_decode(&q);
+            bytes = (size_t)(q - src);
+        }
+        if (bytes >= sizeof(cut)) bytes = sizeof(cut) - 1;
+        memcpy(cut, src, bytes);
+        cut[bytes] = 0;
+        draw_simple_text(fb, W, H, 36, 172 + line * 9, cut,
                          msg_log[mi].color, 1);
         line++;
     }
@@ -3078,17 +3162,19 @@ static int captive_panel_keys(int cx, int cy, SDL_Keycode out[2]) {
     static const SDL_Keycode grid[3][5] = {
         { SDLK_LEFT, SDLK_UP,   SDLK_RIGHT, SDLK_1, SDLK_2 },
         { SDLK_Q,    0,         SDLK_E,     SDLK_3, SDLK_4 },
-        { SDLK_KP_1, SDLK_DOWN, SDLK_KP_3,  0,      SDLK_I },
+        { SDLK_KP_1, SDLK_DOWN, SDLK_KP_3,  SDLK_F5, SDLK_I },
     };
     if (row < 3) {
         out[0] = grid[row][col];
         return out[0] ? 1 : 0;
     }
-    if (col == 4)
-        return 0;               /* rest (zZ) and stop: not implemented */
-    /* Hand buttons: rows 3-4 hold droids 1-2 and 3-4, two hands each. */
+    if (col == 4) {             /* zZ = rest, red hand = stop (pause) */
+        out[0] = row == 3 ? SDLK_Z : SDLK_PAUSE;
+        return 1;
+    }
+    /* Hand buttons: rows 3-4 hold droids 1-2 and 3-4, left then right. */
     out[0] = droid_key[(row - 3) * 2 + col / 2];
-    out[1] = SDLK_SPACE;
+    out[1] = (col % 2) == 0 ? SDLK_F13 : SDLK_F14;
     return 2;
 }
 
@@ -3139,6 +3225,96 @@ static void captive_playable_inventory_render(const GameState *gs, uint32_t *fb)
                      _("TAB page  ENTER use"), 0xFF909090, 1);
     draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 10,
                      _("ESC leave  1-4 droid"), 0xFF909090, 1);
+}
+
+/* Wall devices and floor pits straight ahead (playable approximation:
+ * pictures picked on DOORS1, scaled onto the front face). */
+static void captive_playable_draw_devices(const GameState *gs,
+                                          const TextureAtlas *atlas, uint32_t *fb) {
+    static const int plane[4][4] = {
+        { 0, 0, 144, 112 }, { 16, 9, 112, 98 }, { 32, 25, 80, 70 }, { 40, 37, 64, 49 },
+    };
+    static const int fx[4] = { 0, 1, 0, -1 }, fy[4] = { -1, 0, 1, 0 };
+    const Texture *t = atlas->door_sheet >= 0 ? gfx_get(&atlas->gfx, atlas->door_sheet) : NULL;
+    if (!t || !t->pixels || !t->indices) return;
+    const DungeonLevel *lvl = &gs->levels[gs->current_level];
+    int d = gs->party_dir & 3;
+    for (int f = 1; f <= 3; ++f) {
+        int x = gs->party_x + fx[d] * f, y = gs->party_y + fy[d] * f;
+        if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT) return;
+        for (int ci = 0; ci < creatures.num_creatures && ci < MAX_CREATURES; ++ci) {
+            const Creature *cr = &creatures.creatures[ci];
+            if (cr->active && cr->level == gs->current_level &&
+                cr->x == x && cr->y == y)
+                return;                  /* a creature blocks the view */
+        }
+        CellType ct = lvl->cells[y][x].type;
+        if (ct == CELL_PIT) {
+            /* Dark hole on the floor between planes f and f+1. */
+            int nb = plane[f - 1][1] + plane[f - 1][3];
+            int fb_top = f < 3 ? plane[f][1] + plane[f][3] : 86;
+            int x0 = f < 3 ? plane[f][0] : 40, w = f < 3 ? plane[f][2] : 64;
+            for (int py = fb_top; py < nb; ++py)
+                for (int px = x0 + 4; px < x0 + w - 4; ++px)
+                    fb[(size_t)(CAPTIVE_VIEWPORT_Y + py) * CAPTIVE_ORIGINAL_WIDTH +
+                       (size_t)(CAPTIVE_VIEWPORT_X + px)] = 0xFF050505;
+            continue;
+        }
+        if (ct != CELL_WALL) continue;
+        /* Wall puzzles are stored on the floor cell in front of the wall,
+         * with `face` pointing at it. */
+        int ax = x - fx[d], ay = y - fy[d];
+        const Puzzle *pz = NULL;
+        for (int pi = 0; pi < puzzles.num_puzzles && pi < MAX_PUZZLES; ++pi) {
+            const Puzzle *p = &puzzles.puzzles[pi];
+            if (p->level == gs->current_level && p->x == ax && p->y == ay &&
+                p->face == d && p->type != PUZZLE_WALL_ELECTRIC &&
+                p->type != PUZZLE_HIDDEN_BUTTON) {
+                pz = p;
+                break;
+            }
+        }
+        if (!pz) return;                 /* wall reached, nothing on it */
+        int sx0 = 97, sy0 = 144, sw = 30, sh = 26;        /* hand panel */
+        if (pz->type == PUZZLE_POWER_SOCKET) { sx0 = 226; sy0 = 159; sw = 11; sh = 10; }
+        const int *r = plane[f];
+        int h = r[3] * (pz->type == PUZZLE_POWER_SOCKET ? 20 : 35) / 100;
+        int w = h * sw / sh;
+        int ox = r[0] + (r[2] - w) / 2, oy = r[1] + (r[3] - h) / 2;
+        for (int yy = 0; yy < h; ++yy)
+            for (int xx = 0; xx < w; ++xx) {
+                size_t si = (size_t)(sy0 + yy * sh / h) * (size_t)t->width +
+                            (size_t)(sx0 + xx * sw / w);
+                if (t->indices[si] == 0) continue;
+                uint32_t c = t->pixels[si];
+                if (pz->solved && pz->type != PUZZLE_POWER_SOCKET)
+                    c = (c & 0xFF000000u) | ((c >> 1) & 0x7F7F7Fu);
+                fb[(size_t)(CAPTIVE_VIEWPORT_Y + oy + yy) * CAPTIVE_ORIGINAL_WIDTH +
+                   (size_t)(CAPTIVE_VIEWPORT_X + ox + xx)] = c;
+            }
+        return;
+    }
+}
+
+/* Full playable dungeon frame: original HUD shell, corridor view with
+ * creatures, droid monitors and control panel. */
+static void captive_playable_draw_scene(GameState *gs, const TextureAtlas *atlas,
+                                        const uint32_t *hud_shell, uint32_t *fb) {
+    if (hud_shell)
+        memcpy(fb, hud_shell, CAPTIVE_ORIGINAL_WIDTH * CAPTIVE_ORIGINAL_HEIGHT *
+                              sizeof(uint32_t));
+    CaptiveViewWindow vw;
+    captive_view_window_build(gs, &vw);
+    viewport_render_playable(&vw, atlas, (gs->party_x + gs->party_y) & 1, gs,
+                             &creatures, fb, CAPTIVE_ORIGINAL_WIDTH,
+                             CAPTIVE_ORIGINAL_HEIGHT);
+    captive_playable_draw_devices(gs, atlas, fb);
+    captive_playable_hud(gs, fb);
+    captive_playable_panel_draw(fb);
+    if (captive_resting)
+        draw_simple_text(fb, CAPTIVE_ORIGINAL_WIDTH, CAPTIVE_ORIGINAL_HEIGHT,
+                         CAPTIVE_VIEWPORT_X + 4, CAPTIVE_VIEWPORT_Y + 4,
+                         _("RESTING... (any key)"), 0xFF80C0FF, 1);
 }
 
 int main(int argc, char *argv[]) {
@@ -3888,7 +4064,14 @@ int main(int argc, char *argv[]) {
         snprintf(keys, sizeof(keys), "%s", input_script);
         for (char *tok = strtok(keys, ","); tok && script_count < 256;
              tok = strtok(NULL, ",")) {
-            int cx, cy;
+            int cx, cy, wait_frames;
+            if (sscanf(tok, "Wait:%d", &wait_frames) == 1) {
+                /* Idle frames without input (e.g. while resting). */
+                script_keys[script_count] = SDLK_UNKNOWN;
+                script_click_x[script_count] = -1;
+                script_click_y[script_count++] = wait_frames;
+                continue;
+            }
             if (sscanf(tok, "Click:%d:%d", &cx, &cy) == 2) {
                 /* Canvas-space click on the playable control panel. */
                 script_keys[script_count] = SDLK_UNKNOWN;
@@ -3910,7 +4093,8 @@ int main(int argc, char *argv[]) {
         if (script_pos < script_count && script_wait <= 0 &&
             script_keys[script_pos] == SDLK_UNKNOWN) {
             SDL_Keycode keys[2];
-            int nk = gs.mode == STATE_GAME
+            bool is_wait = script_click_x[script_pos] < 0;
+            int nk = (!is_wait && gs.mode == STATE_GAME)
                 ? captive_panel_keys(script_click_x[script_pos],
                                      script_click_y[script_pos], keys) : 0;
             for (int ki = 0; ki < nk; ++ki) {
@@ -3921,8 +4105,8 @@ int main(int argc, char *argv[]) {
                 kev.key.down = true;
                 game_handle_input(&gs, &kev);
             }
+            script_wait = is_wait ? script_click_y[script_pos] : 12;
             script_pos++;
-            script_wait = 12;
         } else if (script_pos < script_count && script_wait <= 0) {
             SDL_Event ev;
             memset(&ev, 0, sizeof(ev));
@@ -4695,7 +4879,11 @@ int main(int argc, char *argv[]) {
                                 if (shop.selected > 0) shop.selected--;
                                 break;
                             case SDLK_DOWN:
-                                shop.selected = shop_next_selection(&shop);
+                                if (gs.game_type == GAME_CAPTIVE && !captive_use_gm_map) {
+                                    if (shop.selected < shop.num_items - 1) shop.selected++;
+                                } else {
+                                    shop.selected = shop_next_selection(&shop);
+                                }
                                 break;
                             case SDLK_RETURN:
                             case SDLK_KP_ENTER:
@@ -5299,6 +5487,11 @@ int main(int argc, char *argv[]) {
                     else
                         memset(framebuffer, 0, sizeof(framebuffer));
                     captive_playable_tick(&gs);
+                    if (!captive_use_gm_map &&
+                        config.render_mode == CAPTIVE_RENDER_ORIGINAL) {
+                        captive_playable_draw_scene(&gs, &atlas, hud_bg, framebuffer);
+                        break;
+                    }
                     CaptiveViewWindow vw;
                     captive_view_window_build(&gs, &vw);
                     if (config.render_mode == CAPTIVE_RENDER_ORIGINAL &&
@@ -5897,6 +6090,20 @@ int main(int argc, char *argv[]) {
                 else if (captive_holamap_reference)
                     holamap_render(&captive_holamap, framebuffer,
                                    CAPTIVE_ORIGINAL_WIDTH, CAPTIVE_ORIGINAL_HEIGHT);
+                /* Playable campaign: the reference capture always reads
+                 * "CAPTIVE MISSION 0001"; repaint the four digits with the
+                 * current mission (5x7 font, approximation). */
+                if (gs.game_type == GAME_CAPTIVE && !captive_use_gm_map &&
+                    !captive_live_session_active && captive_holamap_reference &&
+                    gs.mission > 1) {
+                    char num[8];
+                    snprintf(num, sizeof(num), "%04d", gs.mission % 10000);
+                    draw_rect(framebuffer, CAPTIVE_ORIGINAL_WIDTH,
+                              CAPTIVE_ORIGINAL_HEIGHT, 134, 56, 24, 9, 0xFF000000);
+                    draw_simple_text(framebuffer, CAPTIVE_ORIGINAL_WIDTH,
+                                     CAPTIVE_ORIGINAL_HEIGHT, 134, 57, num,
+                                     0xFFFFFFFF, 1);
+                }
                 /* Do not add launcher text here. The original holomap
                  * controls, planet surface, cursor and mission labels must
                  * all come from verified Captive media; placeholders are
@@ -6026,6 +6233,11 @@ int main(int argc, char *argv[]) {
             }
 
             case STATE_PAUSE: {
+                /* Redraw the playable scene first so dimming happens once,
+                 * not every frame (which faded the screen to black). */
+                if (gs.game_type == GAME_CAPTIVE && !captive_use_gm_map &&
+                    gs.num_levels > 0)
+                    captive_playable_draw_scene(&gs, &atlas, hud_bg, framebuffer);
                 int pw = (gs.game_type == GAME_LIBERATION && !lib_in_dungeon)
                     ? LIBERATION_SCREEN_WIDTH : CAPTIVE_ORIGINAL_WIDTH;
                 int ph = (gs.game_type == GAME_LIBERATION && !lib_in_dungeon)
