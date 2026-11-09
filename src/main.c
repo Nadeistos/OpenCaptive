@@ -2945,6 +2945,56 @@ static void captive_playable_tick(GameState *gs) {
         if (msg_log[mi].ttl > 0) msg_log[mi].ttl--;
 }
 
+/* Playable HUD: droid status in the four top monitors and the message log
+ * in the text panel under the viewport (positions measured on GAMESCRN.PL5).
+ * Approximation: the original monitors show device views and CAPPO's own
+ * status graphics, which are not decoded yet. */
+static void captive_playable_hud(const GameState *gs, uint32_t *fb) {
+    static const int mon_x[4] = { 6, 69, 132, 195 };
+    const int mon_y = 10, mon_w = 54, mon_h = 40;
+    const int W = CAPTIVE_ORIGINAL_WIDTH, H = CAPTIVE_ORIGINAL_HEIGHT;
+    for (int i = 0; i < 4; ++i) {
+        const Droid *d = &gs->droids[i];
+        int x = mon_x[i], y = mon_y;
+        draw_rect(fb, W, H, x, y, mon_w, mon_h, 0xFF101418);
+        if (i == gs->selected_droid) {
+            draw_rect(fb, W, H, x, y, mon_w, 1, 0xFFFFD040);
+            draw_rect(fb, W, H, x, y + mon_h - 1, mon_w, 1, 0xFFFFD040);
+            draw_rect(fb, W, H, x, y, 1, mon_h, 0xFFFFD040);
+            draw_rect(fb, W, H, x + mon_w - 1, y, 1, mon_h, 0xFFFFD040);
+        }
+        char name[10];
+        snprintf(name, sizeof(name), "%s", d->name[0] ? d->name : "?");
+        draw_simple_text(fb, W, H, x + 3, y + 3, name,
+                         d->hp > 0 ? 0xFFE0E0E0 : 0xFF707070, 1);
+        if (d->hp <= 0) {
+            draw_simple_text(fb, W, H, x + 3, y + 20, _("DESTROYED"), 0xFFFF4040, 1);
+            continue;
+        }
+        int bw = mon_w - 6;
+        int hpw = d->hp_max > 0 ? bw * d->hp / d->hp_max : 0;
+        int enw = d->energy_max > 0 ? bw * d->energy / d->energy_max : 0;
+        if (hpw < 0) hpw = 0;
+        if (enw < 0) enw = 0;
+        uint32_t hpc = d->hp * 3 > d->hp_max ? 0xFF30C040 : 0xFFE03030;
+        draw_rect(fb, W, H, x + 3, y + 14, bw, 5, 0xFF303030);
+        draw_rect(fb, W, H, x + 3, y + 14, hpw, 5, hpc);
+        draw_rect(fb, W, H, x + 3, y + 22, bw, 5, 0xFF303030);
+        draw_rect(fb, W, H, x + 3, y + 22, enw, 5, 0xFF3070E0);
+        char nums[16];
+        snprintf(nums, sizeof(nums), "%d/%d", d->hp, d->energy);
+        draw_simple_text(fb, W, H, x + 3, y + 30, nums, 0xFFB0B0B0, 1);
+    }
+    /* Message log: newest first, in the panel below the viewport. */
+    int line = 0;
+    for (int mi = 0; mi < MSG_LOG_SIZE && line < 3; mi++) {
+        if (msg_log[mi].ttl <= 0 || !msg_log[mi].text[0]) continue;
+        draw_simple_text(fb, W, H, 36, 172 + line * 9, msg_log[mi].text,
+                         msg_log[mi].color, 1);
+        line++;
+    }
+}
+
 int main(int argc, char *argv[]) {
     static char default_data_path[512];
     get_default_data_path(default_data_path, sizeof(default_data_path));
@@ -5023,12 +5073,10 @@ int main(int argc, char *argv[]) {
                     else if (config.render_mode == CAPTIVE_RENDER_ORIGINAL) {
                         viewport_render_playable(
                             &vw, &atlas, (gs.party_x + gs.party_y) & 1,
+                            &gs, &creatures,
                             framebuffer, CAPTIVE_ORIGINAL_WIDTH,
                             CAPTIVE_ORIGINAL_HEIGHT);
-                        viewport_render_creatures(&gs, &creatures, &atlas,
-                                                  framebuffer,
-                                                  CAPTIVE_ORIGINAL_WIDTH,
-                                                  CAPTIVE_ORIGINAL_HEIGHT);
+                        captive_playable_hud(&gs, framebuffer);
                     }
                     else
                         viewport_render(&vw, &atlas, framebuffer,

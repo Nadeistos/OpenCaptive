@@ -18,7 +18,7 @@ msgstr ""
 #: src/engine/puzzle.c:560
 #, c-format
 msgid "Solution: %s"
-msgstr ""
+msgstr "Solution : %s"
 
 #: src/engine/puzzle.c:561 src/engine/start_menu.c:928
 #: src/engine/start_menu.c:929 src/engine/start_menu.c:930
@@ -39,38 +39,38 @@ msgstr "NON"
 #: src/engine/puzzle.c:564
 #, c-format
 msgid "Solution: %d%d%d"
-msgstr ""
+msgstr "Solution : %d%d%d"
 
 #: src/engine/puzzle.c:568
 #, c-format
 msgid "Match: %d"
-msgstr ""
+msgstr "Correspondance : %d"
 
 #: src/engine/puzzle.c:571
 #, c-format
 msgid "Code: %02X"
-msgstr ""
+msgstr "Code : %02X"
 
 #: src/engine/puzzle.c:574
 #, c-format
 msgid "Password: %d"
-msgstr ""
+msgstr "Mot de passe : %d"
 
 #: src/engine/liberation_citygen.c:310
 msgid "Private Residence"
-msgstr ""
+msgstr "Résidence privée"
 
 #: src/engine/liberation_citygen.c:313
 msgid "Library"
-msgstr ""
+msgstr "Bibliothèque"
 
 #: src/engine/liberation_citygen.c:316
 msgid "Police Station"
-msgstr ""
+msgstr "Commissariat"
 
 #: src/engine/liberation_citygen.c:319
 msgid "City Records Office"
-msgstr ""
+msgstr "Archives municipales"
 
 #: src/engine/start_menu.c:907 src/engine/start_menu.c:1013
 #: src/engine/start_menu.c:1247
@@ -311,12 +311,12 @@ msgstr "Archives ZIP trouvées: %d"
 #: src/engine/start_menu.c:1121
 #, c-format
 msgid "Captive: %d / %d %s"
-msgstr ""
+msgstr "Captive : %d / %d %s"
 
 #: src/engine/start_menu.c:1128
 #, c-format
 msgid "Liberation: %d / %d %s"
-msgstr ""
+msgstr "Liberation : %d / %d %s"
 
 #: src/engine/start_menu.c:1135
 msgid "VERIFICATION"
@@ -388,11 +388,11 @@ msgstr "CAPTIVE AMIGA"
 
 #: src/engine/start_menu.c:1207
 msgid "LIBERATION CD32"
-msgstr ""
+msgstr "LIBERATION CD32"
 
 #: src/engine/start_menu.c:1207
 msgid "LIBERATION AMIGA"
-msgstr ""
+msgstr "LIBERATION AMIGA"
 
 #: src/engine/start_menu.c:1250
 msgid "BY DANIEL NYLANDER"
@@ -416,51 +416,51 @@ msgstr ""
 
 #: src/engine/terminal.c:81
 msgid "LEVEL MAP"
-msgstr ""
+msgstr "CARTE DU NIVEAU"
 
 #: src/engine/terminal.c:121
 msgid "DROID STATUS"
-msgstr ""
+msgstr "ÉTAT DES ROBOTS"
 
 #: src/engine/terminal.c:126
 #, c-format
 msgid "%s HP:%d/%d EN:%d/%d"
-msgstr ""
+msgstr "%s PV:%d/%d EN:%d/%d"
 
 #: src/engine/terminal.c:136 src/main.c:2926
 msgid "MISSION BRIEFING"
-msgstr ""
+msgstr "BRIEFING DE MISSION"
 
 #: src/engine/terminal.c:138
 #, c-format
 msgid "MISSION: %d"
-msgstr ""
+msgstr "MISSION : %d"
 
 #: src/engine/terminal.c:141
 #, c-format
 msgid "LEVEL: %d/%d"
-msgstr ""
+msgstr "NIVEAU : %d/%d"
 
 #: src/engine/terminal.c:144
 #, c-format
 msgid "GENERATORS: %d/%d"
-msgstr ""
+msgstr "GÉNÉRATEURS : %d/%d"
 
 #: src/engine/terminal.c:148
 msgid "DESTROY ALL GENERATORS"
-msgstr ""
+msgstr "DÉTRUISEZ TOUS LES GÉNÉRATEURS"
 
 #: src/engine/terminal.c:149
 msgid "TO COMPLETE THE MISSION"
-msgstr ""
+msgstr "POUR ACCOMPLIR LA MISSION"
 
 #: src/engine/terminal.c:187
 msgid "TERMINAL SYSTEM V2.1"
-msgstr ""
+msgstr "SYSTÈME TERMINAL V2.1"
 
 #: src/engine/terminal.c:196
 msgid "ESC:BACK"
-msgstr ""
+msgstr "ÉCHAP:RETOUR"
 
 #: src/main.c:778
 msgid "LOW"
@@ -552,67 +552,67 @@ msgstr "HAUT BAS ENTRÉE ACTIVER"
 
 #: src/main.c:1121 src/main.c:1201 src/main.c:1130 src/main.c:1210
 msgid "Fine paid. Rep +15"
-msgstr ""
+msgstr "Amende payée. Réput. +15"
 
 #: src/main.c:1131 src/main.c:1211 src/main.c:1140 src/main.c:1220
 #, c-format
 msgid "Industrial hazard! %d damage!"
-msgstr ""
+msgstr "Danger industriel ! %d dégâts !"
 
 #: src/main.c:1148 src/main.c:1228 src/main.c:1157 src/main.c:1237
 msgid "Bar fight! Rep -10"
-msgstr ""
+msgstr "Bagarre au bar ! Réput. -10"
 
 #: src/main.c:1177 src/main.c:1186
 msgid "Shared inventory is full."
-msgstr ""
+msgstr "L'inventaire commun est plein."
 
 #: src/main.c:1181 src/main.c:1190
 #, c-format
 msgid "Purchased: %s"
-msgstr ""
+msgstr "Acheté : %s"
 
 #: src/main.c:1185 src/main.c:1194
 msgid "Cannot buy that item."
-msgstr ""
+msgstr "Impossible d'acheter cet objet."
 
 #: src/main.c:1257 src/main.c:1266
 msgid "Entered building interior"
-msgstr ""
+msgstr "Entrée dans le bâtiment"
 
 #: src/main.c:1372 src/main.c:1381
 msgid "Taxi: 50 gold"
-msgstr ""
+msgstr "Taxi : 50 crédits"
 
 #: src/main.c:1523 src/main.c:1550
 msgid "Creature destroyed!"
-msgstr ""
+msgstr "Créature détruite !"
 
 #: src/main.c:1528 src/main.c:1555
 msgid "LEVEL UP!"
-msgstr ""
+msgstr "NIVEAU SUPÉRIEUR !"
 
 #: src/main.c:1533 src/main.c:1560
 #, c-format
 msgid "Droid %d fires!"
-msgstr ""
+msgstr "Le robot %d tire !"
 
 #: src/main.c:1682 src/main.c:1723
 #, c-format
 msgid "Droid %d picked up item"
-msgstr ""
+msgstr "Le robot %d ramasse un objet"
 
 #: src/main.c:1698 src/main.c:1739
 msgid "Fell into a pit!"
-msgstr ""
+msgstr "Chute dans une fosse !"
 
 #: src/main.c:1702 src/main.c:1743
 msgid "Click!"
-msgstr ""
+msgstr "Clic !"
 
 #: src/main.c:2485 src/main.c:2549
 msgid "Left building"
-msgstr ""
+msgstr "Sortie du bâtiment"
 
 #: src/main.c:2496 src/main.c:2560
 msgid "Mission complete. Rep +20"
@@ -620,61 +620,61 @@ msgstr "Mission terminée. Réputation +20"
 
 #: src/main.c:2874 src/main.c:2944
 msgid "PRESS ENTER TO BEGIN"
-msgstr ""
+msgstr "APPUYEZ SUR ENTRÉE"
 
 #: src/main.c:2924 src/main.c:2994
 msgid "TAXI"
-msgstr ""
+msgstr "TAXI"
 
 #: src/main.c:2941 src/main.c:3011
 msgid "COMBAT"
-msgstr ""
+msgstr "COMBAT"
 
 #: src/main.c:2962 src/main.c:3206 src/main.c:3032 src/main.c:3276
 msgid "VICTORY!"
-msgstr ""
+msgstr "VICTOIRE !"
 
 #: src/main.c:2962 src/main.c:3032
 msgid "DEFEATED"
-msgstr ""
+msgstr "VAINCU"
 
 #: src/main.c:3050 src/main.c:3120
 #, c-format
 msgid "Droid %d hit for %d!"
-msgstr ""
+msgstr "Robot %d touché : %d dégâts !"
 
 #: src/main.c:3058 src/main.c:3128
 #, c-format
 msgid "Droid %d destroyed!"
-msgstr ""
+msgstr "Robot %d détruit !"
 
 #: src/main.c:3065 src/main.c:3135
 msgid "All droids destroyed! Mission failed."
-msgstr ""
+msgstr "Tous les robots sont détruits ! Mission échouée."
 
 #: src/main.c:3103 src/main.c:3173
 msgid "INVENTORY"
-msgstr ""
+msgstr "INVENTAIRE"
 
 #: src/main.c:3142 src/main.c:3212
 msgid "SHARED ITEMS"
-msgstr ""
+msgstr "OBJETS COMMUNS"
 
 #: src/main.c:3174 src/main.c:3244
 msgid "GAME OVER"
-msgstr ""
+msgstr "PARTIE TERMINÉE"
 
 #: src/main.c:3176 src/main.c:3246
 msgid "ALL DROIDS DESTROYED"
-msgstr ""
+msgstr "TOUS LES ROBOTS DÉTRUITS"
 
 #: src/main.c:3178 src/main.c:3212 src/main.c:3248 src/main.c:3282
 msgid "PRESS ESCAPE"
-msgstr ""
+msgstr "APPUYEZ SUR ÉCHAP"
 
 #: src/main.c:3208 src/main.c:3278
 msgid "ALL MISSIONS COMPLETE"
-msgstr ""
+msgstr "TOUTES LES MISSIONS ACCOMPLIES"
 
 #: src/engine/droid_ui.c
 msgid "EQUIPMENT"
@@ -703,24 +703,24 @@ msgstr "ENTER : Lancer    S : Boutique"
 
 #: src/main.c:3210 src/main.c:3280
 msgid "YOU HAVE ESCAPED!"
-msgstr ""
+msgstr "VOUS ÊTES LIBRE !"
 
 #: src/main.c:3254 src/main.c:3324
 msgid "PAUSED"
-msgstr ""
+msgstr "PAUSE"
 
 #: src/main.c:3255 src/main.c:3325
 msgid "RESUME"
-msgstr ""
+msgstr "REPRENDRE"
 
 #: src/main.c:3264 src/main.c:3334
 msgid "ESC: RESUME"
-msgstr ""
+msgstr "ÉCHAP : REPRENDRE"
 
 #: src/main.c:3273 src/main.c:3343 src/main.c:3297 src/main.c:3367
 #: src/main.c:3306 src/main.c:3376
 msgid "CITY MAP"
-msgstr ""
+msgstr "PLAN DE LA VILLE"
 
 #: src/game/liberation_npc_dialogue.c:64
 msgid "You leave."
@@ -730,11 +730,11 @@ msgstr "Vous partez."
 #: src/game/liberation_npc_dialogue.c:72
 #: src/game/liberation_building_interact.c:38
 msgid "NPC"
-msgstr ""
+msgstr "PNJ"
 
 #: src/game/liberation_npc_dialogue.c:68
 msgid "I don't have anything to trade right now. Try the shops."
-msgstr ""
+msgstr "Je n'ai rien à échanger pour l'instant. Essayez les boutiques."
 
 #: src/game/liberation_npc_dialogue.c:70
 msgid ""
@@ -782,7 +782,7 @@ msgstr "J'ai peut-être entendu quelque chose. Revenez plus tard."
 
 #: src/game/liberation_shop.c:115
 msgid "Buy"
-msgstr ""
+msgstr "Acheter"
 
 #: src/game/liberation_shop.c:116
 msgid "Any news?"
@@ -790,39 +790,39 @@ msgstr "Des nouvelles?"
 
 #: src/game/liberation_building_interact.c:29
 msgid "Shopkeeper"
-msgstr ""
+msgstr "Commerçant"
 
 #: src/game/liberation_building_interact.c:30
 msgid "Bartender"
-msgstr ""
+msgstr "Barman"
 
 #: src/game/liberation_building_interact.c:31
 msgid "Receptionist"
-msgstr ""
+msgstr "Réceptionniste"
 
 #: src/game/liberation_building_interact.c:32
 msgid "Librarian"
-msgstr ""
+msgstr "Bibliothécaire"
 
 #: src/game/liberation_building_interact.c:33
 msgid "Officer"
-msgstr ""
+msgstr "Agent de police"
 
 #: src/game/liberation_building_interact.c:34
 msgid "Clerk"
-msgstr ""
+msgstr "Employé"
 
 #: src/game/liberation_building_interact.c:35
 msgid "Resident"
-msgstr ""
+msgstr "Habitant"
 
 #: src/game/liberation_building_interact.c:36
 msgid "Foreman"
-msgstr ""
+msgstr "Contremaître"
 
 #: src/game/liberation_building_interact.c:37
 msgid "Agent"
-msgstr ""
+msgstr "Agent"
 
 #: src/game/liberation_building_interact.c:48
 msgid "You leave the building."
@@ -842,7 +842,7 @@ msgstr ""
 
 #: src/game/liberation_building_interact.c:62
 msgid "Search archives"
-msgstr ""
+msgstr "Fouiller les archives"
 
 #: src/game/liberation_building_interact.c:69
 #, c-format
@@ -857,15 +857,15 @@ msgstr ""
 
 #: src/game/liberation_building_interact.c:74
 msgid "You have been fined 100 gold for disturbing the peace."
-msgstr ""
+msgstr "Vous avez reçu une amende de 100 crédits pour trouble à l'ordre public."
 
 #: src/game/liberation_building_interact.c:77
 msgid "Ask for information"
-msgstr ""
+msgstr "Demander des renseignements"
 
 #: src/game/liberation_building_interact.c:79
 msgid "Pay fine"
-msgstr ""
+msgstr "Payer l'amende"
 
 #: src/game/liberation_building_interact.c:86
 msgid "City Records Office. How can we help?"
@@ -880,7 +880,7 @@ msgstr ""
 
 #: src/game/liberation_building_interact.c:94
 msgid "Look up records"
-msgstr ""
+msgstr "Consulter les dossiers"
 
 #: src/game/liberation_building_interact.c:100
 msgid "This is a private residence. What do you want?"
@@ -899,7 +899,7 @@ msgstr "Bienvenue à %s. Cette zone est interdite."
 
 #: src/game/liberation_building_interact.c:113
 msgid "WARNING: Machinery malfunction! Electrical discharge hits your droids!"
-msgstr ""
+msgstr "ALERTE : panne de machine ! Une décharge électrique frappe vos robots !"
 
 #: src/game/liberation_building_interact.c:115
 msgid ""
@@ -926,7 +926,7 @@ msgstr ""
 
 #: src/game/liberation_building_interact.c:134
 msgid "Investigate"
-msgstr ""
+msgstr "Enquêter"
 
 #: src/game/liberation_building_interact.c:140
 #, c-format
@@ -936,61 +936,61 @@ msgstr "Ici %s. Nous ne prenons pas de visiteurs pour le moment."
 #: src/main.c:2928
 #, c-format
 msgid "City: %s"
-msgstr ""
+msgstr "Ville : %s"
 
 #: src/main.c:2931
 #, c-format
 msgid "Find: %s (%s)"
-msgstr ""
+msgstr "Trouver : %s (%s)"
 
 #: src/main.c:2935
 #, c-format
 msgid "Source: %s"
-msgstr ""
+msgstr "Source : %s"
 
 #: src/main.c:2938
 #, c-format
 msgid "%d buildings in city"
-msgstr ""
+msgstr "%d bâtiments en ville"
 
 #: src/main.c:2997
 #, c-format
 msgid "%s (%d,%d) %s"
-msgstr ""
+msgstr "%s (%d,%d) %s"
 
 #: src/main.c:3001
 msgid "[ENTER]"
-msgstr ""
+msgstr "[ENTRÉE]"
 
 #: src/main.c:3019
 #, c-format
 msgid "%s%s HP:%d/%d DMG:%d"
-msgstr ""
+msgstr "%s%s PV:%d/%d DÉG:%d"
 
 #: src/main.c:3028
 msgid "1-4:Attack TAB:Target ESC:Flee"
-msgstr ""
+msgstr "1-4:Attaquer TAB:Cible ÉCHAP:Fuir"
 
 #: src/main.c:3071
 #, c-format
 msgid "%d items available. Gold: %d"
-msgstr ""
+msgstr "%d objets disponibles. Crédits : %d"
 
 #: src/main.c:3087
 msgid "VERIFIED LIBERATION PRESENTATION DATA REQUIRED"
-msgstr ""
+msgstr "DONNÉES LIBERATION VÉRIFIÉES REQUISES"
 
 msgid "I: Inventory"
 msgstr "I : Inventaire"
 
 msgid "EN %d"
-msgstr ""
+msgstr "EN %d"
 
 msgid "HP %d"
-msgstr ""
+msgstr "PV %d"
 
 msgid "R:RENAME  S:SWAP  ENTER:START"
-msgstr ""
+msgstr "R:RENOMMER  S:ÉCHANGER  ENTRÉE:JOUER"
 
 #~ msgid "ARROWS: SELECT  ENTER: START  D: SCAN DATA  F1: CONTROLS"
 #~ msgstr ""
@@ -1047,3 +1047,6 @@ msgstr ""
 
 #~ msgid "VIEW RECONSTRUCTION"
 #~ msgstr "VOIR LA RECONSTITUTION"
+
+msgid "DESTROYED"
+msgstr "DÉTRUIT"

@@ -41,6 +41,12 @@ From the holomap, `L` also enters the dungeon.
   attacks, game over). Creatures and puzzles are spawned on entry.
 - **Starting party.** The roster was empty (0 HP); four default droids are
   created as in `game_state_init()`.
+- **Creatures** are drawn whole, inside their cell (behind nearer walls),
+  scaled between the two planes of the cell.
+- **Droid HUD.** The four top monitors show each droid's name, HP (green, red
+  when low) and energy (blue) bars and numbers; the selected droid has a
+  yellow frame. The text panel under the viewport shows the last messages.
+- **French catalogue** (`po/fr.po`) is complete; the 5x7 font folds accents.
 - **Test aid.** `--input-script "Right,Up,Space"` replays SDL key names, one
   every 12 frames; with `--capture-frame` the capture waits for the script
   and prints the end state (position, creatures, droid HP).
@@ -54,7 +60,11 @@ From the holomap, `L` also enters the dungeon.
   locked doors are tinted red. The original per-depth door pieces are not
   mapped yet.
 - Stairs, shop, generator and terminal cells are drawn as open floor.
-- Creature sprites come from the author's earlier renderer and are drawn in
-  pieces.
+- One hand-picked near-size sprite per ALIEN sheet (and per CAPPO frame
+  byte on ALIEN2) is scaled for every depth; CAPPO's per-type, per-depth
+  creature pieces are not mapped, so several types share a picture and
+  there is no animation.
+- The top monitors show a simple status panel, not the original device
+  views; the right-hand control panel is not drawn yet.
 - The landing zone uses the base wall set instead of the planet surface.
 - Levels are not Captive's real levels (see `--captive-gm-map`).

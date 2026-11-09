@@ -527,8 +527,77 @@ static void play_draw_door(const TextureAtlas *atlas, int plane, bool locked,
     }
 }
 
+/* Near-size creature sprites picked by hand from the ALIEN sheets (playable
+ * approximation: CAPPO's per-type, per-depth creature pieces are not mapped
+ * yet).  Keyed by ALIEN sheet index and CAPPO frame byte (-1 = any). */
+typedef struct { int sheet, frame, x, y, w, h; } PlaySprite;
+static const PlaySprite play_sprites[] = {
+    { 0, -1,     9, 43, 54, 58 },   /* ALIEN1: red worm */
+    { 1, 0x15, 112,  3, 28, 36 },   /* ALIEN2: red robot */
+    { 1, 0x16, 145,  0, 46, 34 },   /* ALIEN2: fanged head */
+    { 1, 0x01,  49,  4, 16, 33 },   /* ALIEN2: green skeleton */
+    { 2, -1,    86,  1, 38, 29 },   /* ALIEN3: blue crawler */
+    { 3, -1,   192,  3, 27, 46 },   /* ALIEN4: cyborg */
+    { 4, -1,   211, 46, 43, 47 },   /* ALIEN5: grey beast */
+    { 5, -1,     3,  1, 87, 50 },   /* ALIEN6: tyrannosaur */
+};
+
+static const PlaySprite *play_sprite_for(int creature_type) {
+    int sheet = creature_sprite_sheet_index(creature_type);
+    int frame = creature_sprite_frame_index(creature_type);
+    const PlaySprite *any = NULL;
+    for (size_t i = 0; i < sizeof(play_sprites) / sizeof(play_sprites[0]); ++i) {
+        if (play_sprites[i].sheet != sheet) continue;
+        if (play_sprites[i].frame == frame) return &play_sprites[i];
+        if (!any) any = &play_sprites[i];
+    }
+    return any;
+}
+
+/* Draw one creature standing in the cell at (forward, lateral). */
+static void play_draw_creature(const TextureAtlas *atlas, int creature_type,
+                               int forward, int lateral, uint32_t *work) {
+    const PlaySprite *sp = play_sprite_for(creature_type);
+    int sheet_idx = creature_sprite_sheet_index(creature_type);
+    if (!sp || sheet_idx < 0 || sheet_idx >= 6 || forward < 1 || forward > 4)
+        return;
+    const Texture *t = gfx_get(&atlas->gfx, atlas->alien_sheets[sheet_idx]);
+    if (!t || !t->pixels || !t->indices) return;
+    /* The cell spans planes f..f+1; size the sprite between the two. */
+    const int *near_r = play_plane_rect[forward];
+    int far_h = forward < 4 ? play_plane_rect[forward + 1][3] : near_r[3] * 2 / 3;
+    int far_w = forward < 4 ? play_plane_rect[forward + 1][2] : near_r[2] * 2 / 3;
+    int cell_h = (near_r[3] + far_h) / 2;
+    int cell_w = (near_r[2] + far_w) / 2;
+    int h = cell_h * 4 / 5;
+    int w = h * sp->w / sp->h;
+    if (w > cell_w) { w = cell_w; h = w * sp->h / sp->w; }
+    int floor_y = (near_r[1] + near_r[3] + (forward < 4
+        ? play_plane_rect[forward + 1][1] + far_h : near_r[1] + near_r[3])) / 2;
+    int cx = CAPTIVE_VIEWPORT_WIDTH / 2 + lateral * cell_w;
+    int ox = cx - w / 2, oy = floor_y - h;
+    for (int y = 0; y < h; ++y) {
+        int sy = sp->y + y * sp->h / h;
+        for (int x = 0; x < w; ++x) {
+            int sx = sp->x + x * sp->w / w;
+            size_t si = (size_t)sy * (size_t)t->width + (size_t)sx;
+            uint8_t idx = t->indices[si];
+            if (idx == 0) continue;
+            uint32_t c = t->pixels[si];
+            /* Skip the sheets' bright-green layout markers. */
+            if (((c >> 8) & 0xFF) > 150 && ((c >> 16) & 0xFF) < 100 && (c & 0xFF) < 100)
+                continue;
+            int dx = ox + x, dy = oy + y;
+            if (dx >= 0 && dx < CAPTIVE_VIEWPORT_WIDTH &&
+                dy >= 0 && dy < (int)CAPTIVE_DOS_VIEW_HEIGHT)
+                work[(size_t)dy * CAPTIVE_DOS_VIEW_STRIDE + (size_t)dx] = c;
+        }
+    }
+}
+
 void viewport_render_playable(const CaptiveViewWindow *window,
                               const TextureAtlas *atlas, int parity,
+                              const GameState *gs, const CreatureList *cl,
                               uint32_t *framebuffer, int fb_width, int fb_height) {
     if (!window || !atlas || !atlas->loaded || !framebuffer ||
         fb_width <= 0 || fb_height <= 0)
@@ -559,7 +628,24 @@ void viewport_render_playable(const CaptiveViewWindow *window,
             }
     }
 
+    static const int fwd_x[4] = { 0, 1, 0, -1 };
+    static const int fwd_y[4] = { -1, 0, 1, 0 };
     for (int f = 4; f >= 0; --f) {
+        /* Creatures inside depth-f cells sit behind the depth-f front faces. */
+        if (gs && cl && f >= 1) {
+            int d = gs->party_dir & 3, r = (d + 1) & 3;
+            for (int ci = 0; ci < cl->num_creatures && ci < MAX_CREATURES; ++ci) {
+                const Creature *cr = &cl->creatures[ci];
+                if (!cr->active || cr->level != gs->current_level) continue;
+                int rx = cr->x - gs->party_x, ry = cr->y - gs->party_y;
+                int fw = rx * fwd_x[d] + ry * fwd_y[d];
+                int lt = rx * fwd_x[r] + ry * fwd_y[r];
+                if (fw != f || lt < -1 || lt > 1) continue;
+                const MapCell *cc = play_cell(window, fw, lt);
+                if (cc && play_solid(cc)) continue;
+                play_draw_creature(atlas, cr->type, fw, lt, work);
+            }
+        }
         /* Outer cells first so that inner faces overlap them. */
         static const int order[5] = { -2, 2, -1, 1, 0 };
         for (int k = 0; k < 5; ++k) {

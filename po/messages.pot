@@ -1067,3 +1067,5 @@ msgstr ""
 msgid "ARROWS: SELECT  ENTER: START  D: SCAN DATA  F1: CONTROLS  F10: IN-GAME OPTIONS"
 msgstr ""
 
+msgid "DESTROYED"
+msgstr ""
