@@ -3092,6 +3092,55 @@ static int captive_panel_keys(int cx, int cy, SDL_Keycode out[2]) {
     return 2;
 }
 
+/* Playable droid inventory inside the viewport.  Two pages, as in the
+ * shared droid UI: equipment (6 body parts, 2 hands, shield) and the
+ * 10-slot bag.  Tab switches page, Enter equips/uses/removes. */
+static void captive_playable_inventory_render(const GameState *gs, uint32_t *fb) {
+    const int W = CAPTIVE_ORIGINAL_WIDTH, H = CAPTIVE_ORIGINAL_HEIGHT;
+    const int x0 = CAPTIVE_VIEWPORT_X, y0 = CAPTIVE_VIEWPORT_Y;
+    const int vw = CAPTIVE_VIEWPORT_WIDTH, vh = CAPTIVE_VIEWPORT_HEIGHT;
+    const Droid *d = &gs->droids[droid_ui.droid_idx & 3];
+    bool equip = droid_ui.ui_mode == DROID_UI_EQUIP;
+    draw_rect(fb, W, H, x0, y0, vw, vh, 0xFF0C1018);
+    draw_rect(fb, W, H, x0, y0, vw, 10, 0xFF283850);
+    char name[10];
+    snprintf(name, sizeof(name), "%s", d->name);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + 2, name, 0xFFFFD040, 1);
+    const char *page = equip ? _("EQUIPMENT") : _("BAG");
+    draw_simple_text(fb, W, H, x0 + vw - 3 - (int)strlen(page) * 6, y0 + 2,
+                     page, 0xFF80C0FF, 1);
+    /* Slots follow the item categories (ITEM_ARMOR_HEAD..HAND), then the
+     * two weapon hands and the shield. */
+    static const char *const part_labels[9] = {
+        "HEAD", "CHEST", "ARM", "LEG", "FOOT", "HAND",
+        "L HAND", "R HAND", "SHIELD",
+    };
+    int rows = equip ? 9 : 10;
+    for (int r = 0; r < rows; ++r) {
+        uint8_t id;
+        if (!equip) id = d->items[r];
+        else if (r < 6) id = d->body_parts[r];
+        else if (r < 8) id = d->weapons[r - 6];
+        else id = d->shield;
+        const Item *it = id ? item_db_get(&item_db, id) : NULL;
+        int y = y0 + 12 + r * 8;
+        bool sel = r == droid_ui.cursor;
+        if (sel) draw_rect(fb, W, H, x0 + 1, y - 1, vw - 2, 8, 0xFF203060);
+        uint32_t col = sel ? 0xFFFFFFFF : it ? 0xFFC0C0C0 : 0xFF606060;
+        char label[8], item[17];
+        if (equip) snprintf(label, sizeof(label), "%s", _(part_labels[r]));
+        else snprintf(label, sizeof(label), "%d", r + 1);
+        snprintf(item, sizeof(item), "%s", it ? it->name : "-");
+        /* Fixed columns: accented labels are wider in bytes than glyphs. */
+        draw_simple_text(fb, W, H, x0 + 3, y, label, 0xFF80A0C0, 1);
+        draw_simple_text(fb, W, H, x0 + 3 + (equip ? 8 : 3) * 6, y, item, col, 1);
+    }
+    draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 19,
+                     _("TAB page  ENTER use"), 0xFF909090, 1);
+    draw_simple_text(fb, W, H, x0 + 3, y0 + vh - 10,
+                     _("ESC leave  1-4 droid"), 0xFF909090, 1);
+}
+
 int main(int argc, char *argv[]) {
     static char default_data_path[512];
     get_default_data_path(default_data_path, sizeof(default_data_path));
@@ -4496,9 +4545,25 @@ int main(int argc, char *argv[]) {
                         event.button.button == SDL_BUTTON_LEFT &&
                         gs.game_type == GAME_CAPTIVE) {
                         float cx, cy;
-                        if (window_to_canvas(&renderer, event.button.x, event.button.y, &cx, &cy))
+                        if (!window_to_canvas(&renderer, event.button.x, event.button.y, &cx, &cy)) {
+                            /* outside the canvas */
+                        } else if (!captive_use_gm_map && gs.num_levels > 0) {
+                            /* Playable inventory: a click on a row selects
+                             * it, a second click on the same row uses it. */
+                            int row = ((int)cy - (CAPTIVE_VIEWPORT_Y + 11)) / 8;
+                            int rows = droid_ui.ui_mode == DROID_UI_EQUIP ? 9 : 10;
+                            if ((int)cx >= CAPTIVE_VIEWPORT_X &&
+                                (int)cx < CAPTIVE_VIEWPORT_X + CAPTIVE_VIEWPORT_WIDTH &&
+                                (int)cy >= CAPTIVE_VIEWPORT_Y + 11 && row < rows) {
+                                if (row == droid_ui.cursor)
+                                    droid_ui_handle_key(&droid_ui, &gs, &item_db, 0x0D);
+                                else
+                                    droid_ui.cursor = row;
+                            }
+                        } else {
                             droid_ui_handle_click(&droid_ui, &gs, &item_db, (int)cx, (int)cy,
                                                   CAPTIVE_ORIGINAL_WIDTH, CAPTIVE_ORIGINAL_HEIGHT);
+                        }
                     }
                     if (event.type == SDL_EVENT_KEY_DOWN) {
                         if (gs.game_type == GAME_LIBERATION) {
@@ -5717,6 +5782,15 @@ int main(int argc, char *argv[]) {
                     draw_simple_text(framebuffer, LIBERATION_SCREEN_WIDTH,
                                   LIBERATION_SCREEN_HEIGHT, 10, 250,
                                   "1-4:DROID ENTER:GIVE E:EQUIP U:UNEQUIP", 0xFF666688, 1);
+                } else if (gs.game_type == GAME_CAPTIVE && !captive_use_gm_map &&
+                           gs.num_levels > 0) {
+                    if (hud_bg)
+                        memcpy(framebuffer, hud_bg,
+                               CAPTIVE_ORIGINAL_WIDTH * CAPTIVE_ORIGINAL_HEIGHT *
+                               sizeof(uint32_t));
+                    captive_playable_hud(&gs, framebuffer);
+                    captive_playable_panel_draw(framebuffer);
+                    captive_playable_inventory_render(&gs, framebuffer);
                 } else if (gs.game_type == GAME_CAPTIVE) {
                     /* CAPPO parity boundary: this state may only be backed
                      * by a real DOS runtime frame.  The native droid UI

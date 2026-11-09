@@ -65,6 +65,12 @@ The right-hand control panel is clickable (left button):
   viewport (the game screen stays visible): Up/Down select, Enter buys for the
   selected droid (1-4 to change), R repairs, Escape leaves. Purchases are
   reported in the message panel.
+- **Droid inventory.** `I` (or the four-colour panel button) opens the
+  selected droid's sheet inside the viewport: EQUIPMENT page (head, chest,
+  arm, leg, foot, hand parts, both weapon hands, shield) and BAG page (10
+  slots). Tab switches page, Up/Down or a click selects, Enter or a second
+  click equips, uses (batteries recharge energy) or removes, 1-4 changes
+  droid, Escape returns to the dungeon.
 - **Mission flow.** Destroying the last generator (Enter in front of it)
   completes the base, advances the mission and returns to the holomap; `L`
   lands on the next base with the same party.

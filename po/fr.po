@@ -1068,3 +1068,51 @@ msgstr "Générateur détruit !"
 
 msgid "Mission complete!"
 msgstr "Mission accomplie !"
+
+msgid "BAG"
+msgstr "SAC"
+
+msgid "HEAD"
+msgstr "TÊTE"
+
+msgid "TORSO"
+msgstr "TORSE"
+
+msgid "L ARM"
+msgstr "BRAS G"
+
+msgid "R ARM"
+msgstr "BRAS D"
+
+msgid "L LEG"
+msgstr "JAMBE G"
+
+msgid "R LEG"
+msgstr "JAMBE D"
+
+msgid "L HAND"
+msgstr "ARME G"
+
+msgid "R HAND"
+msgstr "ARME D"
+
+msgid "SHIELD"
+msgstr "BOUCL."
+
+msgid "TAB page  ENTER use"
+msgstr "TAB page  ENTRÉE util."
+
+msgid "CHEST"
+msgstr "TORSE"
+
+msgid "ARM"
+msgstr "BRAS"
+
+msgid "LEG"
+msgstr "JAMBE"
+
+msgid "FOOT"
+msgstr "PIED"
+
+msgid "HAND"
+msgstr "MAIN"

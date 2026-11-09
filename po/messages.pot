@@ -1087,3 +1087,51 @@ msgstr ""
 
 msgid "Mission complete!"
 msgstr ""
+
+msgid "BAG"
+msgstr ""
+
+msgid "HEAD"
+msgstr ""
+
+msgid "TORSO"
+msgstr ""
+
+msgid "L ARM"
+msgstr ""
+
+msgid "R ARM"
+msgstr ""
+
+msgid "L LEG"
+msgstr ""
+
+msgid "R LEG"
+msgstr ""
+
+msgid "L HAND"
+msgstr ""
+
+msgid "R HAND"
+msgstr ""
+
+msgid "SHIELD"
+msgstr ""
+
+msgid "TAB page  ENTER use"
+msgstr ""
+
+msgid "CHEST"
+msgstr ""
+
+msgid "ARM"
+msgstr ""
+
+msgid "LEG"
+msgstr ""
+
+msgid "FOOT"
+msgstr ""
+
+msgid "HAND"
+msgstr ""
