@@ -1168,3 +1168,18 @@ msgstr ""
 
 msgid "No weapon in that hand"
 msgstr ""
+
+msgid "No ladder here"
+msgstr ""
+
+msgid "Climbed down"
+msgstr ""
+
+msgid "Climbed up"
+msgstr ""
+
+msgid "The ladder is blocked"
+msgstr ""
+
+msgid "Ladder: Enter or 3 / PgDn to climb"
+msgstr ""

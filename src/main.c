@@ -2496,6 +2496,53 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
             gs->paused = true;
             return;
         }
+        /* Ladders: every ladder control (keypad 1/3, Page Up/Down, both
+         * panel ladder buttons) climbs the way the ladder goes, from the
+         * ladder cell or from the cell facing it. */
+        SDL_Keycode lk = event->key.key;
+        if (lk == SDLK_RETURN || lk == SDLK_F || lk == SDLK_KP_ENTER) {
+            /* Enter climbs when the party faces a ladder, or stands on one
+             * facing nothing else to use (a plain wall or open floor). */
+            const DungeonLevel *cur = &gs->levels[gs->current_level];
+            int nx = gs->party_x + (int[]){0,1,0,-1}[gs->party_dir];
+            int ny = gs->party_y + (int[]){-1,0,1,0}[gs->party_dir];
+            CellType here = cur->cells[gs->party_y][gs->party_x].type;
+            CellType ahead = (nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT)
+                ? cur->cells[ny][nx].type : CELL_WALL;
+            bool ahead_ladder = ahead == CELL_STAIRS_UP || ahead == CELL_STAIRS_DOWN;
+            bool here_ladder = here == CELL_STAIRS_UP || here == CELL_STAIRS_DOWN;
+            if (ahead_ladder || (here_ladder && (ahead == CELL_WALL || ahead == CELL_FLOOR)))
+                lk = SDLK_PAGEDOWN;
+        }
+        if (lk == SDLK_KP_1 || lk == SDLK_KP_3 || lk == SDLK_PAGEUP ||
+            lk == SDLK_PAGEDOWN) {
+            const DungeonLevel *cur = &gs->levels[gs->current_level];
+            CellType here = cur->cells[gs->party_y][gs->party_x].type;
+            if (here != CELL_STAIRS_UP && here != CELL_STAIRS_DOWN) {
+                int nx = gs->party_x + (int[]){0,1,0,-1}[gs->party_dir];
+                int ny = gs->party_y + (int[]){-1,0,1,0}[gs->party_dir];
+                if (nx >= 0 && nx < MAP_WIDTH && ny >= 0 && ny < MAP_HEIGHT &&
+                    (cur->cells[ny][nx].type == CELL_STAIRS_UP ||
+                     cur->cells[ny][nx].type == CELL_STAIRS_DOWN) &&
+                    !combat_cell_occupied(&creatures, gs->current_level, nx, ny)) {
+                    gs->party_x = nx;
+                    gs->party_y = ny;
+                    here = cur->cells[ny][nx].type;
+                }
+            }
+            if (here != CELL_STAIRS_UP && here != CELL_STAIRS_DOWN) {
+                msg_push(_("No ladder here"), 0xFFAAAAAA);
+                return;
+            }
+            int dir = here == CELL_STAIRS_DOWN ? 1 : -1;
+            if (combat_change_floor_if_clear(gs, &creatures, dir)) {
+                stair_flash_ttl = 6;
+                msg_push(dir > 0 ? _("Climbed down") : _("Climbed up"), 0xFF80C0FF);
+            } else {
+                msg_push(_("The ladder is blocked"), 0xFFFF8844);
+            }
+            return;
+        }
         /* Panel hand buttons: attack with one hand only by hiding the other
          * hand's weapon for the duration of a normal attack. */
         if (event->key.key == SDLK_F13 || event->key.key == SDLK_F14) {
@@ -2964,6 +3011,18 @@ static void captive_playable_setup(GameState *gs) {
 
 static void captive_playable_tick(GameState *gs) {
     if (captive_use_gm_map || gs->mode != STATE_GAME) { captive_resting = false; return; }
+    static int last_x = -1, last_y = -1, last_level = -1;
+    if (gs->party_x != last_x || gs->party_y != last_y ||
+        gs->current_level != last_level) {
+        CellType here = gs->levels[gs->current_level]
+                            .cells[gs->party_y][gs->party_x].type;
+        if ((here == CELL_STAIRS_UP || here == CELL_STAIRS_DOWN) &&
+            last_level == gs->current_level)
+            msg_push(_("Ladder: Enter or 3 / PgDn to climb"), 0xFF80C0FF);
+        last_x = gs->party_x;
+        last_y = gs->party_y;
+        last_level = gs->current_level;
+    }
     gs->tick++;
     if (gs->move_cooldown > 0) gs->move_cooldown--;
     if (captive_resting) {

@@ -1149,3 +1149,18 @@ msgstr "Réveil : attaque !"
 
 msgid "No weapon in that hand"
 msgstr "Rien dans cette main"
+
+msgid "No ladder here"
+msgstr "Pas d'échelle ici"
+
+msgid "Climbed down"
+msgstr "Descente par l'échelle"
+
+msgid "Climbed up"
+msgstr "Montée par l'échelle"
+
+msgid "The ladder is blocked"
+msgstr "L'échelle est bloquée"
+
+msgid "Ladder: Enter or 3 / PgDn to climb"
+msgstr "Échelle : Entrée pour l'utiliser"

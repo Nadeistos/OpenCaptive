@@ -20,7 +20,7 @@ From the holomap, `L` also enters the dungeon.
 | Q / E | strafe |
 | Space | selected droid attacks |
 | F / Enter | interact: open door, enter shop, destroy generator |
-| Keypad 1 / Keypad 3 | climb up / down a ladder (stairs cell) |
+| Enter (on or facing a ladder), Keypad 1/3, Page Up/Down | climb the ladder, whichever way it goes |
 | 1-4 | select droid |
 | I | inventory, T terminal, M map overlay |
 | F5 / F9 | save / load (`opencaptive.sav` in the working directory) |
@@ -33,7 +33,7 @@ The right-hand control panel is clickable (left button):
 | top-left / top-right arrow | turn left / right |
 | up / down arrow | step forward / back |
 | left / right arrow | strafe |
-| ladder icons (row 3, left / right) | climb up / down |
+| ladder icons (row 3, left / right) | climb the ladder (either icon) |
 | coloured droid bars | select droid 1-4 |
 | four-colour button | inventory |
 | coloured hands | that droid attacks with that hand (left / right) |
