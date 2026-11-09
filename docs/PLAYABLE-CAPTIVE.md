@@ -129,3 +129,19 @@ The right-hand control panel is clickable (left button):
 - No shot or muzzle-flash effect is drawn for ranged attacks.
 - The landing zone uses the base wall set instead of the planet surface.
 - Levels are not Captive's real levels (see `--captive-gm-map`).
+
+## Status when the work was paused (2026-11-09)
+
+- Not yet playable end to end: everything was checked through headless
+  scripted captures, plus one short real session that found the ladder bug
+  (fixed). No full mission (landing, generator, next mission) has been
+  played by hand.
+- Known gameplay problems, not fixed yet:
+  - early creatures hit for 37-43 damage per blow against 100 droid HP;
+  - the panel shows only 3 message lines, so combat messages push hints
+    (such as the ladder hint) out of view;
+  - the objective (find the generator, then the ladder) is not explained;
+  - the 5x7 font folds accents ("é" prints as "e").
+- Suggested next step: play one full mission through `--input-script`
+  from landing to the next mission, capture the key screens, then fix
+  whatever blocks it.
