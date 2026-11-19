@@ -1162,5 +1162,23 @@ msgstr "Montée par l'échelle"
 msgid "The ladder is blocked"
 msgstr "L'échelle est bloquée"
 
-msgid "Ladder: Enter or 3 / PgDn to climb"
-msgstr "Échelle : Entrée pour l'utiliser"
+msgid "Ladder: press Enter"
+msgstr "Échelle : Entrée"
+
+msgid "Door: press Enter"
+msgstr "Porte : Entrée"
+
+msgid "Locked door"
+msgstr "Porte verrouillée"
+
+msgid "Shop: press Enter"
+msgstr "Boutique : Entrée"
+
+msgid "Generator: press Enter"
+msgstr "Générateur : Entrée"
+
+msgid "Destroy the generator"
+msgstr "Détruisez le générateur"
+
+msgid "Find a ladder"
+msgstr "Trouvez une échelle"

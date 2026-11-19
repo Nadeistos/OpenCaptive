@@ -130,10 +130,14 @@ static void combat_spawn_for_level_internal(CreatureList *cl,
                         cat = creature_types[se->creature_type - 1].category;
                     int base = 2 + cat + level_num;
                     if (base > 20) base = 20;
-                    int dmg_lo = (base >> 1) | 1;
-                    int dmg_hi = base;
-                    c->damage_min = (int16_t)(dmg_lo * dmg_hi);
-                    c->damage_max = (int16_t)(dmg_lo * dmg_hi + dmg_hi);
+                    /* Playable-first approximation: a linear range.  The
+                     * earlier lo*hi product made early creatures hit for
+                     * 37-43 against 100 droid HP (three blows per droid).
+                     * base+4 .. 2*base+4 gives 6-28 on the first bases
+                     * (about 1-21 once fresh armour takes its 7) and caps
+                     * deep levels at 24-44. */
+                    c->damage_min = (int16_t)(base + 4);
+                    c->damage_max = (int16_t)(2 * base + 4);
                     c->defense = (int16_t)(cat * 2 + level_num);
                     c->range = (cat >= 4) ? 4 + (cat - 4) : 1 + cat / 3;
                 }
@@ -516,7 +520,14 @@ void combat_tick(CreatureList *cl, GameState *gs) {
 
         int dist = distance(c->x, c->y, gs->party_x, gs->party_y);
 
-        if (dist <= c->range + 2) c->alerted = true;
+        /* Playable-first approximation: besides the close range+2 radius,
+         * a creature that sees the party within 6 cells joins the fight.
+         * Without it, creatures in a maze almost never noticed the party
+         * (a whole three-level base was crossed without a blow). */
+        if (dist <= c->range + 2 ||
+            (dist <= 6 && combat_has_line_of_sight(gs, c->x, c->y,
+                                                   gs->party_x, gs->party_y)))
+            c->alerted = true;
         if (!c->alerted) continue;
 
         if (c->cooldown > 0) { c->cooldown--; continue; }

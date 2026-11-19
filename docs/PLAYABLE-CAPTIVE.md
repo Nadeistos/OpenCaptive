@@ -89,16 +89,42 @@ The right-hand control panel is clickable (left button):
   dark holes on the floor ahead.
 - **Holomap mission number** is repainted over the reference capture from
   mission 2 on.
-- **Messages** are cut to the 23 glyphs of the panel.
+- **Messages** are cut to the 23 glyphs of the panel. The panel shows the
+  two newest messages (5 s each) above a standing hint line: what Enter does
+  with the cell the party stands on or faces (ladder, door, locked door,
+  shop, generator), otherwise the objective ("Destroy the generator" when
+  the level has one, else "Find a ladder").
+- **Accents.** The 5x7 font draws acute, grave, circumflex, diaeresis and
+  cedilla marks over the base letter, and descenders (g, p, q, comma) on
+  an eighth row.
+- **Creature damage** is a linear approximation, `base+4 .. 2*base+4` with
+  `base = 2 + category + level` (capped at 20), before armour. The former
+  `lo*hi` product hit for about 40 per blow on the first base.
+- **Energy.** Walking costs each droid one energy every fourth step (it
+  was one per step, which emptied the party on a three-level base; attacks
+  need 3 energy). Passive regeneration and rest are unchanged.
+- **Creature alert.** Besides the close `range+2` radius, a creature that
+  sees the party within 6 cells starts chasing it.
+- **Shop cell.** The Architect can wall a generator in behind the shop, so
+  Enter on the shop cell uses the generator or door ahead before opening
+  the shop.
 - **Mission flow.** Destroying the last generator (Enter in front of it)
   completes the base, advances the mission and returns to the holomap; `L`
   lands on the next base with the same party.
-- **Test aids.** `--input-script "Right,Up,Space"` replays SDL key names, one
-  every 12 frames; with `--capture-frame` the capture waits for the script
-  and prints the end state (position, creatures, droid HP).
+- **Test aids.** `--input-script "Right,Up,Space"` replays SDL key names,
+  one every 12 frames (no length limit; `--input-script @file` reads the
+  list from a file, commas or newlines). With `--capture-frame` the capture
+  waits for the script and prints the end state: position, creatures,
+  droid HP and energy, mission number and the last 8 messages.
   `--place-party LEVEL,X,Y,DIR` starts the dungeon at a given cell.
   A `Click:X:Y` token clicks the control panel at canvas coordinates and
   `Wait:N` idles N frames without input.
+  `CAPTIVE_DUMP_MAP=1` prints every level of each landed base as ASCII
+  (`#` wall, `+` door, `L` locked, `U`/`D` ladder, `S` shop, `G`
+  generator; the party cell is on a `PARTY level x,y` line), and again at
+  the end of a scripted capture. Add `--fps 0` to scripted captures: the
+  simulation is tick-based, so the result is identical and several times
+  faster.
 
 ## Known approximations
 
@@ -130,18 +156,21 @@ The right-hand control panel is clickable (left button):
 - The landing zone uses the base wall set instead of the planet surface.
 - Levels are not Captive's real levels (see `--captive-gm-map`).
 
-## Status when the work was paused (2026-11-09)
+## Status (2026-11-19)
 
-- Not yet playable end to end: everything was checked through headless
-  scripted captures, plus one short real session that found the ladder bug
-  (fixed). No full mission (landing, generator, next mission) has been
-  played by hand.
-- Known gameplay problems, not fixed yet:
-  - early creatures hit for 37-43 damage per blow against 100 droid HP;
-  - the panel shows only 3 message lines, so combat messages push hints
-    (such as the ladder hint) out of view;
-  - the objective (find the generator, then the ladder) is not explained;
-  - the 5x7 font folds accents ("é" prints as "e").
-- Suggested next step: play one full mission through `--input-script`
-  from landing to the next mission, capture the key screens, then fix
-  whatever blocks it.
+- Playable end to end by script: an autoplay run (headless, `--fps 0`,
+  `CAPTIVE_DUMP_MAP=1`, path-finding on the dumped map, fighting adjacent
+  creatures, resting below 45 HP or 12 energy) completed missions 1, 2 and
+  3 in a row with the same party (mission 3: five levels, four
+  generators), then stopped on its own time limit inside mission 4 after
+  two of its generators. Still not played by hand over a full mission.
+- Fixed on the way: creature damage, the message panel (standing hint
+  line, objective), accents, walking energy drain, creatures that never
+  noticed the party, Enter on a shop cell hiding the generator behind it,
+  and the 256-key cap of `--input-script`.
+- Still to look at: the droids rarely meet creatures (9 fights over
+  mission 3); "Le robot 1 tire !" is printed for melee blows too; levels
+  and art remain the approximations listed above.
+- Suggested next step: a real hand-played mission (window, mouse and
+  keyboard) to judge pace and difficulty, then decide whether to tune the
+  balance further or return to decoding CAPPO's real rules.

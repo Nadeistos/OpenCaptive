@@ -1189,7 +1189,7 @@ static CreatureList creatures;
 static PuzzleList puzzles;
 
 #define MSG_LOG_SIZE 4
-#define MSG_LOG_TTL  180
+#define MSG_LOG_TTL  300
 #define MSG_HISTORY_SIZE 64
 static struct {
     char text[64];
@@ -1552,6 +1552,56 @@ static uint8_t unicode_to_ascii(uint32_t cp) {
     }
 }
 
+/* Accent marks drawn over the folded base letter (5 columns, bit 0 = top
+ * row).  Lowercase letters start on row 2, so their accents use rows 0-1;
+ * capitals start on row 1 and get a one-row accent on row 0.  Bit 7 is the
+ * descender row (cedilla). */
+enum { ACC_NONE, ACC_ACUTE, ACC_GRAVE, ACC_CIRC, ACC_DIAER, ACC_CEDIL };
+
+static int unicode_accent(uint32_t cp) {
+    switch (cp) {
+        case 0xC1: case 0xC9: case 0xCD: case 0xD3: case 0xDA: case 0xDD:
+        case 0xE1: case 0xE9: case 0xED: case 0xF3: case 0xFA: case 0xFD:
+            return ACC_ACUTE;
+        case 0xC0: case 0xC8: case 0xCC: case 0xD2: case 0xD9:
+        case 0xE0: case 0xE8: case 0xEC: case 0xF2: case 0xF9:
+            return ACC_GRAVE;
+        case 0xC2: case 0xCA: case 0xCE: case 0xD4: case 0xDB:
+        case 0xE2: case 0xEA: case 0xEE: case 0xF4: case 0xFB:
+            return ACC_CIRC;
+        case 0xC4: case 0xCB: case 0xCF: case 0xD6: case 0xDC:
+        case 0xE4: case 0xEB: case 0xEF: case 0xF6: case 0xFC: case 0xFF:
+            return ACC_DIAER;
+        case 0xC7: case 0xE7:
+            return ACC_CEDIL;
+        default:
+            return ACC_NONE;
+    }
+}
+
+static void simple_glyph_with_accent(uint8_t ch, int accent, uint8_t out[5]) {
+    static const uint8_t lower[][5] = {
+        [ACC_ACUTE] = {0x00,0x00,0x02,0x01,0x00},
+        [ACC_GRAVE] = {0x00,0x01,0x02,0x00,0x00},
+        [ACC_CIRC]  = {0x00,0x02,0x01,0x02,0x00},
+        [ACC_DIAER] = {0x00,0x01,0x00,0x01,0x00},
+        [ACC_CEDIL] = {0x00,0x00,0x80,0x80,0x00},
+    };
+    static const uint8_t upper[][5] = {
+        [ACC_ACUTE] = {0x00,0x00,0x00,0x01,0x00},
+        [ACC_GRAVE] = {0x00,0x01,0x00,0x00,0x00},
+        [ACC_CIRC]  = {0x00,0x00,0x01,0x00,0x00},
+        [ACC_DIAER] = {0x00,0x01,0x00,0x01,0x00},
+        [ACC_CEDIL] = {0x00,0x00,0x80,0x80,0x00},
+    };
+    memcpy(out, simple_font[ch], 5);
+    if (accent == ACC_NONE) return;
+    bool is_lower = ch >= 'a' && ch <= 'z';
+    if (ch == 'i') out[2] &= (uint8_t)~0x01;      /* dotless i under the mark */
+    const uint8_t *mark = is_lower ? lower[accent] : upper[accent];
+    for (int c = 0; c < 5; ++c) out[c] |= mark[c];
+}
+
 static void draw_simple_text(uint32_t *fb, int pw, int ph,
                              int x, int y, const char *text, uint32_t color, int scale) {
     const char *p = text;
@@ -1560,10 +1610,11 @@ static void draw_simple_text(uint32_t *fb, int pw, int ph,
         uint32_t cp = utf8_decode(&p);
         uint8_t ch = unicode_to_ascii(cp);
         if (ch >= sizeof(simple_font)/sizeof(simple_font[0])) { gi++; continue; }
-        const uint8_t *glyph = simple_font[ch];
+        uint8_t glyph[5];
+        simple_glyph_with_accent(ch, unicode_accent(cp), glyph);
         for (int col = 0; col < 5; col++) {
             uint8_t bits = glyph[col];
-            for (int row = 0; row < 7; row++) {
+            for (int row = 0; row < 8; row++) {
                 if (bits & (1 << row)) {
                     for (int sy = 0; sy < scale; sy++)
                         for (int sx = 0; sx < scale; sx++) {
@@ -2671,16 +2722,22 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
         case SDLK_RETURN:
         case SDLK_KP_ENTER: {
             const DungeonLevel *cur = &gs->levels[gs->current_level];
-            // Check if on shop cell
-            if (cur->cells[gs->party_y][gs->party_x].type == CELL_SHOP) {
-                open_captive_shop(gs, gs->current_level);
-                return;
-            }
-            // Try puzzle first, then general interact
             int fwd_x = (int[]){0,1,0,-1}[gs->party_dir];
             int fwd_y = (int[]){-1,0,1,0}[gs->party_dir];
             int tx = gs->party_x + fwd_x;
             int ty = gs->party_y + fwd_y;
+            // On a shop cell, Enter opens the shop unless the party faces
+            // something else to use: the Architect can wall a generator in
+            // behind the shop, so the shop cell is its only approach.
+            CellType ahead_cell = (tx >= 0 && tx < MAP_WIDTH && ty >= 0 && ty < MAP_HEIGHT)
+                ? cur->cells[ty][tx].type : CELL_WALL;
+            if (cur->cells[gs->party_y][gs->party_x].type == CELL_SHOP &&
+                ahead_cell != CELL_GENERATOR && ahead_cell != CELL_DOOR &&
+                ahead_cell != CELL_DOOR_LOCKED) {
+                open_captive_shop(gs, gs->current_level);
+                return;
+            }
+            // Try puzzle first, then general interact
             int face = (gs->party_dir + 2) % 4;
             {
                 bool has_clipboard = false;
@@ -2873,10 +2930,16 @@ static void game_handle_input(GameState *gs, const SDL_Event *event) {
             {
                 int total_weight = 0;
                 int leg_damage = 0;
+                /* Playable-first approximation: walking costs one energy
+                 * every fourth step.  One per step emptied the droids on a
+                 * three-level base (about 150 steps), and attacks need 3
+                 * energy, so the party arrived unable to fight. */
+                static unsigned walk_steps;
+                bool drain_step = (++walk_steps % 4) == 0;
                 for (int di = 0; di < 4; di++) {
                     Droid *dd = &gs->droids[di];
                     if (dd->hp <= 0) continue;
-                    if (dd->energy > 0) dd->energy--;
+                    if (drain_step && dd->energy > 0) dd->energy--;
                     for (int si = 0; si < 10; si++)
                         if (dd->items[si] != 0) total_weight += 2;
                     for (int w = 0; w < 2; w++)
@@ -2970,11 +3033,34 @@ static void captive_dungeon_move(GameState *gs, SDL_Keycode key) {
     gs->party_y = ny;
 }
 
+/* Development aid: CAPTIVE_DUMP_MAP=1 prints every level of each landed
+ * base as ASCII (# wall, + door, L locked, U/D ladder, S shop, G generator)
+ * so scripted runs can be planned; the party cell is given on its own line. */
+static void captive_dump_map(const GameState *gs) {
+    if (!getenv("CAPTIVE_DUMP_MAP")) return;
+    static const char glyph[] = "#.+LUDSTGtEp_";
+    printf("MISSION %d\nPARTY %d %d,%d\n", gs->mission, gs->current_level,
+           gs->party_x, gs->party_y);
+    for (int lv = 0; lv < gs->num_levels; ++lv) {
+        printf("LEVEL %d\n", lv);
+        for (int y = 0; y < MAP_HEIGHT; ++y) {
+            for (int x = 0; x < MAP_WIDTH; ++x) {
+                int t = (int)gs->levels[lv].cells[y][x].type;
+                char c = (t >= 0 && t < (int)sizeof glyph - 1) ? glyph[t] : '?';
+                putchar(c);
+            }
+            putchar('\n');
+        }
+    }
+    fflush(stdout);
+}
+
 /* Playable-first Captive dungeon: entry setup and per-frame simulation.
  * The author removed the shared compatibility tick from the Captive path;
  * the Architect dungeon needs it back for movement cooldown, energy regen
  * and creature AI.  The GM.EXE map keeps the inert walker. */
 static void captive_playable_setup(GameState *gs) {
+    captive_dump_map(gs);
     combat_init(&creatures);
     puzzle_init(&puzzles);
     if (captive_use_gm_map) return;
@@ -3011,18 +3097,6 @@ static void captive_playable_setup(GameState *gs) {
 
 static void captive_playable_tick(GameState *gs) {
     if (captive_use_gm_map || gs->mode != STATE_GAME) { captive_resting = false; return; }
-    static int last_x = -1, last_y = -1, last_level = -1;
-    if (gs->party_x != last_x || gs->party_y != last_y ||
-        gs->current_level != last_level) {
-        CellType here = gs->levels[gs->current_level]
-                            .cells[gs->party_y][gs->party_x].type;
-        if ((here == CELL_STAIRS_UP || here == CELL_STAIRS_DOWN) &&
-            last_level == gs->current_level)
-            msg_push(_("Ladder: Enter or 3 / PgDn to climb"), 0xFF80C0FF);
-        last_x = gs->party_x;
-        last_y = gs->party_y;
-        last_level = gs->current_level;
-    }
     gs->tick++;
     if (gs->move_cooldown > 0) gs->move_cooldown--;
     if (captive_resting) {
@@ -3085,6 +3159,37 @@ static void captive_playable_tick(GameState *gs) {
         if (msg_log[mi].ttl > 0) msg_log[mi].ttl--;
 }
 
+/* Playable HUD hint: one standing line naming what the party can do with
+ * the cell it stands on or faces, or the base objective otherwise.  It
+ * keeps the ladder/door/generator prompts visible while combat messages
+ * scroll above it.  (Approximation: the original has no such line.) */
+static const char *captive_playable_hint(const GameState *gs) {
+    static const int fx[4] = {0, 1, 0, -1};
+    static const int fy[4] = {-1, 0, 1, 0};
+    const DungeonLevel *lvl = &gs->levels[gs->current_level];
+    CellType here = lvl->cells[gs->party_y][gs->party_x].type;
+    int d = gs->party_dir & 3;
+    int ax = gs->party_x + fx[d], ay = gs->party_y + fy[d];
+    CellType ahead = (ax >= 0 && ax < MAP_WIDTH && ay >= 0 && ay < MAP_HEIGHT)
+        ? lvl->cells[ay][ax].type : CELL_WALL;
+    if (here == CELL_STAIRS_UP || here == CELL_STAIRS_DOWN ||
+        ahead == CELL_STAIRS_UP || ahead == CELL_STAIRS_DOWN)
+        return _("Ladder: press Enter");
+    switch (ahead) {
+        case CELL_DOOR:         return _("Door: press Enter");
+        case CELL_DOOR_LOCKED:  return _("Locked door");
+        case CELL_SHOP:         return _("Shop: press Enter");
+        case CELL_GENERATOR:    return _("Generator: press Enter");
+        default: break;
+    }
+    if (here == CELL_SHOP) return _("Shop: press Enter");
+    for (int y = 0; y < MAP_HEIGHT; ++y)
+        for (int x = 0; x < MAP_WIDTH; ++x)
+            if (lvl->cells[y][x].type == CELL_GENERATOR)
+                return _("Destroy the generator");
+    return _("Find a ladder");
+}
+
 /* Playable HUD: droid status in the four top monitors and the message log
  * in the text panel under the viewport (positions measured on GAMESCRN.PL5).
  * Approximation: the original monitors show device views and CAPPO's own
@@ -3125,9 +3230,12 @@ static void captive_playable_hud(const GameState *gs, uint32_t *fb) {
         snprintf(nums, sizeof(nums), "%d/%d", d->hp, d->energy);
         draw_simple_text(fb, W, H, x + 3, y + 30, nums, 0xFFB0B0B0, 1);
     }
-    /* Message log: newest first, in the panel below the viewport. */
+    /* Message log: newest first, in the panel below the viewport; the
+     * bottom line is the standing hint. */
+    draw_simple_text(fb, W, H, 36, 190, captive_playable_hint(gs),
+                     0xFF70D0A0, 1);
     int line = 0;
-    for (int mi = 0; mi < MSG_LOG_SIZE && line < 3; mi++) {
+    for (int mi = 0; mi < MSG_LOG_SIZE && line < 2; mi++) {
         if (msg_log[mi].ttl <= 0 || !msg_log[mi].text[0]) continue;
         /* The panel holds 23 glyphs; cut longer messages at a glyph
          * boundary so they do not spill over the button bank. */
@@ -4115,14 +4223,47 @@ int main(int argc, char *argv[]) {
     /* Development aid: a comma-separated list of SDL key names (e.g.
      * "Right,Up,Up") replayed one key every few frames so movement cooldowns
      * elapse; with --capture-frame the capture waits for the script to end. */
-    SDL_Keycode script_keys[256];
-    int script_click_x[256], script_click_y[256];
+    SDL_Keycode *script_keys = NULL;
+    int *script_click_x = NULL, *script_click_y = NULL;
     int script_count = 0, script_pos = 0, script_wait = 0;
     if (input_script) {
-        char keys[2048];
-        snprintf(keys, sizeof(keys), "%s", input_script);
-        for (char *tok = strtok(keys, ","); tok && script_count < 256;
+        /* "@path" reads the script from a file (long scripted runs exceed
+         * a comfortable command line). */
+        char *keys = NULL;
+        if (input_script[0] == '@') {
+            FILE *sf = fopen(input_script + 1, "rb");
+            if (sf) {
+                fseek(sf, 0, SEEK_END);
+                long sz = ftell(sf);
+                fseek(sf, 0, SEEK_SET);
+                keys = sz >= 0 ? malloc((size_t)sz + 1) : NULL;
+                if (keys) {
+                    size_t got = fread(keys, 1, (size_t)sz, sf);
+                    keys[got] = 0;
+                    for (size_t ci = 0; ci < got; ++ci)
+                        if (keys[ci] == '\n' || keys[ci] == '\r') keys[ci] = ',';
+                }
+                fclose(sf);
+            } else {
+                fprintf(stderr, "--input-script: cannot read '%s'\n", input_script + 1);
+            }
+        } else {
+            keys = strdup(input_script);
+        }
+        size_t max_tokens = 1;
+        for (const char *c = keys ? keys : ""; *c; ++c) if (*c == ',') ++max_tokens;
+        script_keys = calloc(max_tokens, sizeof(*script_keys));
+        script_click_x = calloc(max_tokens, sizeof(*script_click_x));
+        script_click_y = calloc(max_tokens, sizeof(*script_click_y));
+        if (!keys || !script_keys || !script_click_x || !script_click_y) {
+            fprintf(stderr, "--input-script: out of memory\n");
+            max_tokens = 0;
+        }
+        for (char *tok = max_tokens ? strtok(keys, ",") : NULL;
+             tok && (size_t)script_count < max_tokens;
              tok = strtok(NULL, ",")) {
+            while (*tok == ' ') ++tok;
+            if (!*tok) continue;
             int cx, cy, wait_frames;
             if (sscanf(tok, "Wait:%d", &wait_frames) == 1) {
                 /* Idle frames without input (e.g. while resting). */
@@ -4144,6 +4285,7 @@ int main(int argc, char *argv[]) {
             else
                 script_keys[script_count++] = key;
         }
+        free(keys);
     }
 
     while (running) {
@@ -6502,7 +6644,16 @@ int main(int argc, char *argv[]) {
                                    creatures.creatures[ci].y);
                     printf("\nDroid HP:");
                     for (int di = 0; di < 4; ++di) printf(" %d", gs.droids[di].hp);
-                    printf("\n");
+                    printf("\nDroid energy:");
+                    for (int di = 0; di < 4; ++di) printf(" %d", gs.droids[di].energy);
+                    printf("\nMission: %d\n", gs.mission);
+                    int first = msg_history_count > 8 ? msg_history_count - 8 : 0;
+                    for (int mi = first; mi < msg_history_count; ++mi)
+                        printf("Msg: %s\n", msg_history[mi].text);
+                    if (getenv("CAPTIVE_DUMP_MAP")) {
+                        printf("END ");
+                        captive_dump_map(&gs);
+                    }
                 }
                 running = false;
             }
